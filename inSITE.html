@@ -1,0 +1,3138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>inSITE v0.1.0 — Site Complexity Analyser</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500&family=DM+Mono:wght@400;500&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#F5F4F1;--bg2:#FFFFFF;--bg3:#EEECE7;
+  --border:rgba(60,55,45,0.12);--border2:rgba(60,55,45,0.22);
+  --text:#2C2A24;--text2:#6B6456;--text3:#A09888;
+  --amber:#B86B0A;--amber2:#8A4E06;--amber3:#5C3204;
+  --amber-faint:rgba(184,107,10,0.08);--amber-glow:rgba(184,107,10,0.18);
+  --red:#C13333;--red-bg:rgba(193,51,51,0.10);
+  --orange:#B86B0A;--orange-bg:rgba(184,107,10,0.10);
+  --green:#0F7A58;--green-bg:rgba(15,122,88,0.10);
+  --blue:#1A5FA8;--blue-bg:rgba(26,95,168,0.10);
+  --mono:'DM Mono','Courier New',Courier,monospace;
+}
+html,body{height:100%;background:#ECEAE4;color:var(--text);font-family:var(--mono);font-size:14px}
+
+.app{display:grid;grid-template-rows:38px 1fr;grid-template-columns:220px 4px 1fr 4px 280px;height:100vh;overflow:hidden}
+
+/* TOPBAR */
+.topbar{grid-column:1/-1;display:flex;align-items:center;gap:10px;padding:0 14px;background:var(--bg2);border-bottom:1px solid var(--border2);z-index:10}
+.logo{font-size:17px;font-weight:500;letter-spacing:0.05em}
+.logo .in{color:var(--text2)}
+.logo .site{color:var(--amber)}
+.logo .ver{font-size:11px;color:var(--text3);margin-left:4px}
+.tb-sep{width:1px;height:16px;background:var(--border2)}
+.tb-pill{font-size:11px;padding:2px 8px;border-radius:10px;border:0.5px solid var(--border);color:var(--text2)}
+.tb-spacer{flex:1}
+.tb-btn{font-size:12px;padding:3px 9px;border:0.5px solid var(--border);border-radius:3px;color:var(--text2);background:transparent;cursor:pointer}
+.tb-btn.on{border-color:var(--amber);color:var(--amber);background:var(--amber-faint)}
+.tb-btn:hover{color:var(--text);border-color:var(--border2)}
+#file-status-bar{font-size:11px;color:var(--text3);margin-left:6px}
+
+/* LEFT PANEL */
+.left{background:var(--bg2);border-right:1px solid var(--border);padding:0;overflow-y:auto;display:flex;flex-direction:column;gap:0}
+.left-inner{padding:10px;display:flex;flex-direction:column;gap:10px;overflow-y:auto;flex:1;padding-bottom:0}
+.left-pin{padding:10px;border-top:0.5px solid var(--border);background:var(--bg2);flex-shrink:0}
+.sect{border-bottom:0.5px solid var(--border)}
+.sect-hdr{display:flex;align-items:center;justify-content:space-between;padding:7px 10px;cursor:pointer;user-select:none;background:var(--bg2)}
+.sect-hdr:hover{background:var(--bg3)}
+.sect-hdr .slabel{margin:0;padding:0;border:none;font-size:10px;letter-spacing:0.12em;color:var(--amber2);text-transform:uppercase}
+.sect-hdr .sect-arrow{font-size:9px;color:var(--text3);transition:transform 0.15s}
+.sect-hdr.open .sect-arrow{transform:rotate(90deg)}
+.sect-body{padding:0 10px 10px;display:flex;flex-direction:column;gap:7px}
+.sect-body.hidden{display:none}
+
+/* CENTRE */
+.centre{background:#ECEAE4;position:relative;overflow:hidden}
+#terrain-canvas{display:block;width:100%;height:100%}
+
+/* RIGHT PANEL */
+.right{background:var(--bg2);border-left:1px solid var(--border);padding:10px;overflow-y:auto;display:flex;flex-direction:column;gap:10px}
+
+/* SHARED */
+.slabel{font-size:11px;letter-spacing:0.12em;color:var(--amber2);text-transform:uppercase;padding-bottom:5px;border-bottom:0.5px solid var(--border);margin-bottom:7px}
+
+.dropzone{border:1px dashed var(--border2);border-radius:6px;padding:14px 10px;text-align:center;cursor:pointer;transition:border-color 0.2s,background 0.2s}
+.dropzone:hover,.dropzone.drag{border-color:var(--amber);background:var(--amber-faint)}
+.dz-icon{font-size:22px;margin-bottom:5px;opacity:0.5}
+.dz-main{font-size:12px;color:var(--text2);line-height:1.6}
+.dz-file{font-size:11px;color:var(--amber);margin-top:4px}
+.dz-ok{font-size:11px;color:var(--green);margin-top:3px}
+.dz-err{font-size:11px;color:var(--red);margin-top:3px}
+
+.param-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
+.param-label{font-size:12px;color:var(--text2)}
+.param-input{width:90px;font-size:12px;background:rgba(184,107,10,0.06);border:0.5px solid var(--border2);border-radius:3px;color:var(--amber);padding:2px 5px;font-family:var(--mono);text-align:right}
+.param-input:focus{outline:none;border-color:var(--amber)}
+
+.mfl-block{border:0.5px solid var(--border2);border-radius:5px;padding:8px;background:rgba(26,95,168,0.05);border-color:rgba(55,138,221,0.30)}
+.mfl-block.warn{border-color:rgba(239,159,39,0.50);background:rgba(184,107,10,0.06)}
+.mfl-block.alert{border-color:rgba(226,75,74,0.50);background:rgba(193,51,51,0.06)}
+.mfl-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:5px}
+.mfl-input{width:90px;font-size:12px;background:rgba(55,138,221,0.10);border:0.5px solid rgba(55,138,221,0.40);border-radius:3px;color:var(--blue);padding:2px 5px;font-family:var(--mono);text-align:right}
+.mfl-input:focus{outline:none}
+.mfl-status{font-size:11px;padding:3px 6px;border-radius:3px;text-align:center;margin-top:3px}
+.mfl-status.ok{background:rgba(29,158,117,0.15);color:var(--green)}
+.mfl-status.warn{background:rgba(239,159,39,0.15);color:var(--amber)}
+.mfl-status.alert{background:rgba(226,75,74,0.15);color:var(--red)}
+
+.rule-item{border-left:2px solid var(--border2);padding:4px 7px;margin-bottom:4px;border-radius:0 3px 3px 0;background:rgba(60,55,45,0.05)}
+.rule-item.crit{border-color:var(--red)}
+.rule-item.mod{border-color:var(--amber)}
+.rule-item.ok{border-color:var(--green)}
+.rule-id{font-size:11px;color:var(--text3)}
+.rule-text{font-size:12px;color:var(--text2);line-height:1.4}
+
+.run-btn{width:100%;padding:8px;background:var(--amber-faint);border:1px solid var(--border2);border-radius:4px;color:var(--amber);font-size:13px;cursor:pointer;font-family:var(--mono);letter-spacing:0.06em}
+.splitter{width:4px;background:var(--border);cursor:col-resize;transition:background 0.15s;z-index:10;position:relative}
+.splitter:hover,.splitter.dragging{background:var(--amber2)}
+.splitter::after{content:'';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:2px;height:32px;background:currentColor;border-radius:1px;opacity:0.4}
+.run-btn:hover{background:var(--amber-glow);border-color:var(--amber)}
+
+/* SCORE */
+.score-row{display:flex;align-items:center;gap:14px;margin-bottom:8px}
+.score-big{font-size:69px;font-weight:500;line-height:1;font-family:var(--mono)}
+.score-meta{display:flex;flex-direction:column;gap:3px}
+.score-band{font-size:14px;font-weight:500}
+.score-sub{font-size:11px;color:var(--text2)}
+.score-sub b{color:var(--text)}
+.ob-track{height:6px;background:rgba(60,55,45,0.10);border-radius:3px;overflow:hidden;margin-bottom:3px}
+.ob-fill{height:6px;border-radius:3px}
+.ob-ticks{display:flex;justify-content:space-between;margin-bottom:10px}
+.ob-tick{font-size:11px;color:var(--text3)}
+
+/* CRITERIA BARS */
+.crit-list{display:flex;flex-direction:column;gap:8px;margin-bottom:8px}
+.crit-head{display:flex;align-items:baseline;margin-bottom:3px}
+.crit-id{font-size:11px;color:var(--text3);min-width:26px}
+.crit-name{font-size:12px;color:var(--text);flex:1;padding:0 5px}
+.crit-pct{font-size:12px;font-weight:500;min-width:30px;text-align:right}
+.bar-track{height:5px;background:rgba(60,55,45,0.10);border-radius:3px;overflow:hidden}
+.bar-fill{height:5px;border-radius:3px;transition:width 0.4s}
+.crit-note{font-size:11px;color:var(--text3);margin-top:2px;line-height:1.4}
+
+/* FEASIBILITY TABLE */
+.feas-table{width:100%;border-collapse:collapse;font-size:12px}
+.feas-table th{font-size:11px;letter-spacing:0.08em;text-transform:uppercase;color:var(--text3);text-align:left;padding:0 0 5px;border-bottom:0.5px solid var(--border)}
+.feas-table th:nth-child(2){text-align:center}
+.feas-table td{padding:5px 0 4px;border-bottom:0.5px solid var(--border);vertical-align:top;line-height:1.4;color:var(--text2)}
+.feas-table tr:last-child td{border-bottom:none}
+.feas-table td:nth-child(2){text-align:center;padding:5px 6px 4px}
+.feas-table td:nth-child(3){font-style:italic;padding-left:6px;font-size:11px}
+.badge{display:inline-block;font-size:11px;padding:1px 6px;border-radius:3px;font-weight:500;white-space:nowrap}
+.b-crit{background:#FCEBEB;color:#991F1F;border:0.5px solid rgba(193,51,51,0.3)}
+.b-mod{background:#FEF3E2;color:#7A4500;border:0.5px solid rgba(184,107,10,0.3)}
+.b-ok{background:#E8F5EF;color:#0A5C40;border:0.5px solid rgba(15,122,88,0.3)}
+.b-na{background:var(--bg3);color:var(--text2);border:0.5px solid var(--border)}
+
+.export-btn{width:100%;padding:7px;background:transparent;border:0.5px solid var(--border2);border-radius:4px;color:var(--text2);font-size:12px;cursor:pointer;font-family:var(--mono);letter-spacing:0.04em;margin-top:4px}
+.export-btn:hover{background:rgba(255,255,255,0.04);color:var(--text)}
+
+/* VIEWPORT OVERLAYS */
+.view-modes{position:absolute;top:8px;left:8px;display:flex;gap:4px;z-index:5}
+.vm{font-size:12px;font-weight:500;width:32px;height:32px;border:1px solid var(--border2);border-radius:3px;color:var(--text2);background:rgba(245,244,241,0.95);cursor:pointer;display:flex;align-items:center;justify-content:center;user-select:none;box-sizing:border-box}
+.vm:hover{border-color:var(--amber2);color:var(--amber2)}
+.vm.on{border-color:#1a1a1a;color:#1a1a1a;background:#ffffff;font-weight:500;border-width:1.5px}
+.north-w{position:absolute;top:116px;right:16px;z-index:5}
+.coords-w{position:absolute;bottom:8px;right:10px;font-size:11px;color:var(--text3);z-index:5}
+.legend-w{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);z-index:5;background:rgba(245,244,241,0.95);border:0.5px solid var(--border);border-radius:6px;padding:5px 12px;display:flex;flex-direction:row;align-items:center;gap:14px;white-space:nowrap}
+.lg-row{display:flex;align-items:center;gap:5px}
+.lg-sw{width:10px;height:10px;border-radius:2px;flex-shrink:0}
+.lg-txt{font-size:11px;color:var(--text2)}
+.no-data{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:8px;color:var(--text3);font-size:13px;pointer-events:none}
+.no-data-icon{font-size:38px;opacity:0.3}
+#terrain-canvas{cursor:grab}
+#terrain-canvas:active{cursor:grabbing}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(60,55,45,0.35);z-index:100;align-items:center;justify-content:center}
+.modal{background:var(--bg2);border:0.5px solid var(--border2);border-radius:12px;padding:20px;width:340px;max-height:88vh;overflow-y:auto}
+.modal-title{font-size:14px;font-weight:500;color:var(--text);margin-bottom:14px;display:flex;justify-content:space-between;align-items:center}
+.modal-close{background:none;border:none;color:var(--text3);cursor:pointer;font-size:18px;padding:0;line-height:1}
+.modal-close:hover{color:var(--text)}
+.modal-section{margin-bottom:14px}
+.pr-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px}
+.pr-label{font-size:11px;color:var(--text2)}
+.pr-input{width:70px;font-size:11px;background:var(--bg3);border:0.5px solid var(--border2);border-radius:3px;color:var(--text);padding:2px 6px;font-family:var(--mono);text-align:right}
+.pr-input:focus{outline:none;border-color:var(--amber)}
+.pr-colour{width:44px;height:26px;border:0.5px solid var(--border2);border-radius:3px;cursor:pointer;padding:2px}
+.pr-check{width:16px;height:16px;cursor:pointer;accent-color:var(--amber)}
+.modal-hint{font-size:10px;color:var(--text3);margin-top:10px;border-top:0.5px solid var(--border);padding-top:10px;line-height:1.8}
+.modal-btn{width:100%;padding:7px;background:var(--amber-faint);border:0.5px solid var(--border2);border-radius:4px;color:var(--amber);font-size:11px;cursor:pointer;font-family:var(--mono);margin-top:8px}
+.modal-btn:hover{background:var(--amber-glow)}
+.ns-btn{font-size:11px;font-family:var(--sans);padding:4px 6px;background:var(--bg3);border:0.5px solid var(--border2);border-radius:4px;color:var(--text);cursor:pointer;text-align:center}
+.ns-btn:hover{background:var(--amber-faint);border-color:var(--amber2);color:var(--amber2)}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="logo"><span class="in">in</span><span class="site">SITE</span><span class="ver">v0.1.0-alpha</span></div>
+    <div class="tb-sep"></div>
+    <div class="tb-pill">Site complexity analyser</div>
+    <span id="file-status-bar">— no file loaded</span>
+    <div class="tb-spacer"></div>
+    <button class="tb-btn on" id="btn-ifc">IFC</button>
+    <button class="tb-btn" id="btn-dxf" title="Coming soon" disabled style="opacity:0.4">DXF</button>
+    <button class="tb-btn" id="btn-xyz" title="Coming soon" disabled style="opacity:0.4">XYZ</button>
+    <div class="tb-sep"></div>
+    <button class="tb-btn" id="btn-export-json">Export JSON</button>
+    <button class="tb-btn" onclick="openProps()" title="Viewport properties">Properties</button>
+  </div>
+
+  <!-- LEFT PANEL -->
+  <div class="left" id="left-panel">
+    <div class="left-inner" id="left-inner">
+
+      <!-- FILE -->
+      <div class="sect" id="sect-file">
+        <div class="sect-hdr open" onclick="toggleSect('file')">
+          <span class="slabel">File</span><span class="sect-arrow">▶</span>
+        </div>
+        <div class="sect-body" id="sect-body-file">
+          <div class="dropzone" id="dropzone">
+            <div class="dz-icon">⬡</div>
+            <div class="dz-main">Drop IFC terrain file here<br>or click to open</div>
+            <div class="dz-file" id="dz-filename"></div>
+            <div id="dz-status"></div>
+          </div>
+          <input type="file" id="file-input" accept=".ifc" style="display:none">
+        <input type="hidden" id="p-ffl" value="0">
+        </div>
+      </div>
+
+      <!-- PARAMETERS -->
+      <div class="sect" id="sect-params">
+        <div class="sect-hdr open" onclick="toggleSect('params')">
+          <span class="slabel">Parameters</span><span class="sect-arrow">▶</span>
+        </div>
+        <div class="sect-body" id="sect-body-params">
+          <div class="param-row"><span class="param-label">Footprint (m²)</span><input class="param-input" id="p-footprint" type="number" step="1" value="120"></div>
+          <div class="param-row"><span class="param-label">Contour interval (m)</span><input class="param-input" id="p-contour" type="number" step="0.1" value="0.250"></div>
+          <div class="param-row"><span class="param-label">Slope alert (°)</span><input class="param-input" id="p-slope" type="number" step="1" value="15"></div>
+        </div>
+      </div>
+
+      <!-- SETBACKS -->
+      <div class="sect" id="sect-setbacks">
+        <div class="sect-hdr open" onclick="toggleSect('setbacks')">
+          <span class="slabel">Setbacks</span><span class="sect-arrow">▶</span>
+        </div>
+        <div class="sect-body" id="sect-body-setbacks">
+          <div class="param-row"><span class="param-label">Front boundary (m)</span><input class="param-input" id="p-setback-front" type="number" step="0.1" value="3.0"></div>
+          <div class="param-row"><span class="param-label">Side / rear (m)</span><input class="param-input" id="p-setback-side" type="number" step="0.1" value="1.5"></div>
+          <div id="frontage-status" style="font-size:10px;padding:5px 7px;border-radius:4px;border:0.5px solid var(--border);background:var(--bg3);color:var(--text3)">No boundary loaded</div>
+          <button id="btn-pick-frontage" style="display:none;width:100%;padding:5px;font-size:10px;font-family:var(--sans);background:var(--amber-faint);border:0.5px solid var(--amber2);border-radius:4px;color:var(--amber2);cursor:pointer">↖ Click street boundary edge</button>
+        </div>
+      </div>
+
+      <!-- FLOOD / MFL -->
+      <div class="sect" id="sect-mfl">
+        <div class="sect-hdr" onclick="toggleSect('mfl')">
+          <span class="slabel">Flood / MFL</span><span class="sect-arrow">▶</span>
+        </div>
+        <div class="sect-body hidden" id="sect-body-mfl">
+          <div class="mfl-block" id="mfl-block">
+            <div class="mfl-row">
+              <div style="display:flex;flex-direction:column;gap:1px">
+                <span style="font-size:12px;color:var(--blue);font-family:var(--sans)">Min. floor level</span>
+                <span style="font-size:10px;color:var(--text3);font-family:var(--sans)">Council-set MFL (m)</span>
+              </div>
+              <input class="mfl-input" id="mfl-val" type="number" step="0.05" value="">
+              <button id="mfl-clear" title="Clear MFL" style="background:none;border:none;color:var(--text3);cursor:pointer;font-size:12px;padding:0 2px;font-family:var(--mono)">✕</button>
+            </div>
+            <div class="mfl-status" id="mfl-status" style="display:none"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FORM MODELS -->
+      <div class="sect" id="sect-model">
+        <div class="sect-hdr" onclick="toggleSect('model')">
+          <span class="slabel">Form models</span><span class="sect-arrow">▶</span>
+        </div>
+        <div class="sect-body hidden" id="sect-body-model">
+          <div id="model-list" style="display:flex;flex-direction:column;gap:4px;margin-bottom:6px"></div>
+          <div id="model-detail" style="display:none">
+            <div style="border-top:0.5px solid var(--border);padding-top:7px;margin-top:2px">
+              <div class="param-row">
+                <span class="param-label">Name</span>
+                <input class="param-input" id="m-name" type="text" style="width:90px;font-family:var(--sans)" value="House 1">
+              </div>
+              <div class="param-row"><span class="param-label">Offset X (m)</span><input class="param-input" id="m-off-x" type="number" step="0.1" value="0.0"></div>
+              <div class="param-row"><span class="param-label">Offset Y (m)</span><input class="param-input" id="m-off-y" type="number" step="0.1" value="0.0"></div>
+              <div class="param-row"><span class="param-label">Offset Z (m)</span><input class="param-input" id="m-off-z" type="number" step="0.1" value="0.0"></div>
+              <div class="param-row"><span class="param-label">Rotation (°)</span><input class="param-input" id="m-rot" type="number" step="1" value="0.0"></div>
+              <div class="param-row"><span class="param-label">Colour</span><input class="pr-colour" id="m-colour" type="color" value="#888888" style="cursor:pointer" onchange="updateActiveModel()"></div>
+              <div class="param-row"><span class="param-label">Opacity</span><input class="param-input" id="m-opacity" type="number" step="0.05" min="0.1" max="1.0" value="0.45"></div>
+              <div class="param-row"><span class="param-label">Show edges</span><input type="checkbox" id="m-edges" style="width:16px;height:16px;accent-color:var(--amber)"></div>
+            </div>
+          </div>
+          <div class="dropzone" id="model-dropzone" style="border-color:var(--border)">
+            <div class="dz-icon">◻</div>
+            <div class="dz-main">Drop IFC / OBJ / STL<br>Drop .mtl for OBJ colours</div>
+            <div id="model-add-status"></div>
+          </div>
+          <input type="file" id="model-input" accept=".ifc,.obj,.stl,.mtl" style="display:none">
+        </div>
+      </div>
+
+      <!-- SHADOW / SUN -->
+      <div class="sect" id="sect-shadow">
+        <div class="sect-hdr" onclick="toggleSect('shadow')">
+          <span class="slabel">Shadow / sun</span><span class="sect-arrow">▶</span>
+        </div>
+        <div class="sect-body hidden" id="sect-body-shadow">
+          <div class="param-row">
+            <span class="param-label">Show shadow</span>
+            <input type="checkbox" id="sh-show" style="width:16px;height:16px;cursor:pointer;accent-color:var(--amber)" onchange="computeShadow();renderCanvas()">
+          </div>
+          <div class="param-row"><span class="param-label">Latitude</span><input class="param-input" id="sh-lat" type="number" step="0.001" value="-43.530"></div>
+          <div class="param-row"><span class="param-label">Longitude</span><input class="param-input" id="sh-lon" type="number" step="0.001" value="172.620"></div>
+          <div class="param-row"><span class="param-label">Date</span><input class="param-input" id="sh-date" type="date" value="2026-06-21" style="width:110px"></div>
+          <div class="param-row"><span class="param-label">Time</span><input class="param-input" id="sh-time" type="time" value="12:00" style="width:80px"></div>
+          <div id="sh-readout" style="font-size:10px;color:var(--text3);padding:5px 0;border-top:0.5px solid var(--border);margin-top:3px">Sun: — alt · — az</div>
+        </div>
+      </div>
+
+      <!-- RULESET -->
+      <div class="sect" id="sect-rules">
+        <div class="sect-hdr" onclick="toggleSect('rules')">
+          <span class="slabel">Ruleset</span><span class="sect-arrow">▶</span>
+        </div>
+        <div class="sect-body hidden" id="sect-body-rules">
+          <div style="font-size:11px;color:var(--text3)">NZ residential — default</div>
+          <div class="rule-item crit"><div class="rule-id">R01 · critical</div><div class="rule-text">NZS 3604 scope (slope ≥ <span id="r01-thresh">15</span>°)</div></div>
+          <div class="rule-item mod"><div class="rule-id">R02 · moderate</div><div class="rule-text">Retaining zone triggered</div></div>
+          <div class="rule-item mod"><div class="rule-id">R03 · moderate</div><div class="rule-text">Drainage risk — flat zone &lt; 1°</div></div>
+          <div class="rule-item ok"><div class="rule-id">R04 · info</div><div class="rule-text">Elevation range &gt; 3 m</div></div>
+        </div>
+      </div>
+
+    </div><!-- /left-inner -->
+
+    <!-- PINNED RUN BUTTON -->
+    <div class="left-pin">
+      <button class="run-btn" id="run-btn">▶ Run analysis</button>
+    </div>
+
+  </div>
+
+  <!-- LEFT SPLITTER -->
+  <div class="splitter" id="splitter-left" ondblclick="resetSplitter('left')" title="Drag to resize · Double-click to reset"></div>
+
+  <!-- CENTRE VIEWPORT -->
+  <div class="centre" id="centre">
+    <div class="no-data" id="no-data-msg">
+      <div class="no-data-icon">⬡</div>
+      <div>Drop an IFC terrain file to begin</div>
+    </div>
+    <canvas id="terrain-canvas"></canvas>
+
+    <div class="view-modes">
+      <div class="vm" data-mode="slope" style="width:auto;padding:0 10px">Slope</div>
+      <div class="vm on" data-mode="elevation" style="width:auto;padding:0 10px">Elevation</div>
+      <div class="vm" data-mode="aspect" style="width:auto;padding:0 10px">Aspect</div>
+    </div>
+    <div id="rotation-box" style="position:absolute;top:46px;left:8px;z-index:5;display:flex;align-items:center;gap:5px;background:rgba(245,244,241,0.92);border:0.5px solid var(--border2);border-radius:5px;padding:4px 8px">
+      <button onclick="rotatePlan(0,true)" title="Reset to 0°" style="font-size:14px;width:20px;height:20px;border:none;background:transparent;color:var(--text2);cursor:pointer;padding:0;line-height:1;font-weight:700">⟳</button>
+      <button onclick="rotatePlan(-1)" style="font-size:11px;width:20px;height:20px;border:0.5px solid var(--border2);border-radius:3px;background:var(--bg3);color:var(--text);cursor:pointer;font-family:var(--sans);display:flex;align-items:center;justify-content:center">−</button>
+      <input id="plan-rot-display" type="number" min="0" max="359" step="1" value="0"
+        style="width:46px;font-size:11px;font-family:var(--mono);text-align:center;border:0.5px solid var(--border2);border-radius:3px;background:var(--bg3);color:var(--text);padding:1px 3px"
+        onchange="rotatePlanAbsolute(this.value)">
+      <span style="font-size:10px;color:var(--text3)">°</span>
+      <button onclick="rotatePlan(1)" style="font-size:11px;width:20px;height:20px;border:0.5px solid var(--border2);border-radius:3px;background:var(--bg3);color:var(--text);cursor:pointer;font-family:var(--sans);display:flex;align-items:center;justify-content:center">+</button>
+    </div>
+    <div style="position:absolute;top:8px;right:10px;z-index:5;">
+      <div style="display:grid;grid-template-columns:32px 32px 32px;grid-template-rows:32px 32px 32px;gap:2px;">
+        <div></div>
+        <div class="vm" onclick="setView('rear')" title="Back elevation" style="display:flex;align-items:center;justify-content:center;font-weight:500">B</div>
+        <div></div>
+        <div class="vm" onclick="setView('left')" title="Left elevation" style="display:flex;align-items:center;justify-content:center;font-weight:500">L</div>
+        <div class="vm on" id="view-label" onclick="resetView()" title="Plan / reset" style="display:flex;align-items:center;justify-content:center;font-weight:500;font-size:13px">P</div>
+        <div class="vm" onclick="setView('right')" title="Right elevation" style="display:flex;align-items:center;justify-content:center;font-weight:500">R</div>
+        <div></div>
+        <div class="vm" onclick="setView('front')" title="Front elevation" style="display:flex;align-items:center;justify-content:center;font-weight:500">F</div>
+        <div></div>
+      </div>
+    </div>
+
+
+    <div class="coords-w" id="coords-w"></div>
+
+    <div class="legend-w" id="legend-w">
+      <!-- filled dynamically by updateLegend() -->
+      <div class="lg-row" id="mfl-leg-row" style="display:none"><div class="lg-sw" style="background:rgba(55,138,221,0.3);border:1px solid #378ADD"></div><span class="lg-txt" style="color:#1A5FA8">MFL</span></div>
+      <div class="lg-row" id="bdry-leg-row" style="display:none"><div class="lg-sw" style="background:none;border:2px dashed #8B2FC9"></div><span class="lg-txt" style="color:#8B2FC9">Boundary</span></div>
+      <div class="lg-row" id="setback-leg-row" style="display:none"><div class="lg-sw" style="background:none;border:2px dashed #B86B0A"></div><span class="lg-txt" style="color:#B86B0A">Setback</span></div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT SPLITTER -->
+  <div class="splitter" id="splitter-right" ondblclick="resetSplitter('right')" title="Drag to resize · Double-click to reset"></div>
+
+  <!-- RIGHT PANEL -->
+  <div class="right" id="right-panel">
+
+    <div>
+      <div class="slabel">Site complexity index</div>
+      <div class="score-row">
+        <div class="score-big" id="score-val" style="color:var(--text3)">—</div>
+        <div class="score-meta">
+          <div class="score-band" id="score-band" style="color:var(--text3)">No data</div>
+          <div class="score-sub" id="score-sub">Load an IFC file and run analysis</div>
+        </div>
+      </div>
+      <div class="ob-track"><div class="ob-fill" id="ob-fill" style="width:0%;background:var(--text3)"></div></div>
+      <div class="ob-ticks">
+        <span class="ob-tick">0</span>
+        <span class="ob-tick" style="color:#1D9E75">Low</span>
+        <span class="ob-tick" style="color:#EF9F27">Mod</span>
+        <span class="ob-tick" style="color:#E24B4A">High</span>
+        <span class="ob-tick">100%</span>
+      </div>
+    </div>
+
+    <div>
+      <div class="slabel">Terrain metrics</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:5px;margin-bottom:8px">
+        <div style="background:var(--bg3);border:0.5px solid var(--border);border-radius:4px;padding:6px 8px">
+          <div style="font-size:11px;color:var(--text3)">Max slope</div>
+          <div id="m-maxslope" style="font-size:18px;color:var(--amber)">—</div>
+        </div>
+        <div style="background:var(--bg3);border:0.5px solid var(--border);border-radius:4px;padding:6px 8px">
+          <div style="font-size:11px;color:var(--text3)">Mean slope</div>
+          <div id="m-meanslope" style="font-size:18px;color:var(--amber)">—</div>
+        </div>
+        <div style="background:var(--bg3);border:0.5px solid var(--border);border-radius:4px;padding:6px 8px">
+          <div style="font-size:11px;color:var(--text3)">Elev. range</div>
+          <div id="m-elevrange" style="font-size:18px;color:var(--amber)">—</div>
+        </div>
+        <div style="background:var(--bg3);border:0.5px solid var(--border);border-radius:4px;padding:6px 8px">
+          <div style="font-size:11px;color:var(--text3)">Buildable area</div>
+          <div id="m-buildable" style="font-size:18px;color:var(--amber)">—</div>
+        </div>
+        <div style="background:var(--bg3);border:0.5px solid var(--border);border-radius:4px;padding:6px 8px">
+          <div style="font-size:11px;color:var(--text3)">Triangles</div>
+          <div id="m-tris" style="font-size:18px;color:var(--amber)">—</div>
+        </div>
+        <div style="background:var(--bg3);border:0.5px solid var(--border);border-radius:4px;padding:6px 8px">
+          <div style="font-size:11px;color:var(--text3)">Site span</div>
+          <div id="m-span" style="font-size:18px;color:var(--amber)">—</div>
+        </div>
+        <div style="background:var(--bg3);border:0.5px solid var(--border);border-radius:4px;padding:6px 8px">
+          <div style="font-size:11px;color:var(--text3)">Site area</div>
+          <div id="m-sitearea" style="font-size:18px;color:var(--amber)">—</div>
+        </div>
+        <div style="background:var(--bg3);border:0.5px solid var(--border);border-radius:4px;padding:6px 8px">
+          <div style="font-size:11px;color:var(--text3)">Buildable envelope</div>
+          <div id="m-envelope" style="font-size:18px;color:var(--amber)">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div>
+      <div class="slabel">Criteria breakdown</div>
+      <div class="crit-list" id="crit-list">
+        <div style="font-size:12px;color:var(--text3);text-align:center;padding:8px 0">Run analysis to see results</div>
+      </div>
+    </div>
+
+    <div>
+      <div class="slabel">Impacts on feasibility</div>
+      <table class="feas-table">
+        <thead><tr><th>Category</th><th>Rating</th><th>Next action</th></tr></thead>
+        <tbody id="feas-body">
+          <tr><td colspan="3" style="text-align:center;color:var(--text3);padding:8px 0;font-style:italic">—</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <button class="export-btn" id="export-btn">↗ Export JSON report</button>
+
+  </div>
+
+</div>
+
+<!-- PROPERTIES MODAL -->
+<div class="modal-overlay" id="props-modal" onclick="if(event.target===this)closeProps()">
+  <div class="modal">
+    <div class="modal-title">
+      Viewport properties
+      <button class="modal-close" onclick="closeProps()">×</button>
+    </div>
+
+    <div class="modal-section">
+      <div class="slabel">View colour gradients</div>
+      <div class="pr-row"><span class="pr-label">Slope gradient</span><input class="pr-check" type="checkbox" id="pr-grad-slope" checked onchange="renderCanvas()"></div>
+      <div class="pr-row" style="padding-left:8px">
+        <span class="pr-label" style="font-size:10px">Low (buildable)</span>
+        <input class="pr-colour" type="color" id="pr-slope-lo" value="#bbff00" onchange="renderCanvas()">
+      </div>
+      <div class="pr-row" style="padding-left:8px">
+        <span class="pr-label" style="font-size:10px">Mid (moderate)</span>
+        <input class="pr-colour" type="color" id="pr-slope-mid" value="#ff8c00" onchange="renderCanvas()">
+      </div>
+      <div class="pr-row" style="padding-left:8px">
+        <span class="pr-label" style="font-size:10px">High (critical)</span>
+        <input class="pr-colour" type="color" id="pr-slope-hi" value="#ff0000" onchange="renderCanvas()">
+      </div>
+      <div class="pr-row" style="margin-top:6px"><span class="pr-label">Elevation gradient</span><input class="pr-check" type="checkbox" id="pr-grad-elev" checked onchange="renderCanvas()"></div>
+      <div class="pr-row" style="padding-left:8px">
+        <span class="pr-label" style="font-size:10px">From (low)</span>
+        <input class="pr-colour" type="color" id="pr-elev-lo" value="#ffffff" onchange="renderCanvas()">
+      </div>
+      <div class="pr-row" style="padding-left:8px">
+        <span class="pr-label" style="font-size:10px">To (high)</span>
+        <input class="pr-colour" type="color" id="pr-elev-hi" value="#f6fa00" onchange="renderCanvas()">
+      </div>
+      <div class="pr-row" style="margin-top:6px"><span class="pr-label">Aspect gradient</span><input class="pr-check" type="checkbox" id="pr-grad-aspect" checked onchange="renderCanvas()"></div>
+      <div class="pr-row" style="padding-left:8px">
+        <span class="pr-label" style="font-size:10px">From (N)</span>
+        <input class="pr-colour" type="color" id="pr-aspect-from" value="#ff7f27" onchange="renderCanvas()">
+      </div>
+      <div class="pr-row" style="padding-left:8px">
+        <span class="pr-label" style="font-size:10px">To (S)</span>
+        <input class="pr-colour" type="color" id="pr-aspect-to" value="#00a2e8" onchange="renderCanvas()">
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <div class="slabel">Contour lines</div>
+      <div class="pr-row"><span class="pr-label">Show contours</span><input class="pr-check" type="checkbox" id="pr-show-contours" checked onchange="renderCanvas()"></div>
+      <div class="pr-row"><span class="pr-label">Minor weight (px)</span><input class="pr-input" type="number" id="pr-contour-minor" min="0.5" max="5" step="0.25" value="1.0" onchange="renderCanvas()"></div>
+      <div class="pr-row"><span class="pr-label">Major weight (px)</span><input class="pr-input" type="number" id="pr-contour-major" min="0.5" max="8" step="0.25" value="2.0" onchange="renderCanvas()"></div>
+      <div class="pr-row"><span class="pr-label">Colour</span><input class="pr-colour" type="color" id="pr-contour-colour" value="#6B5C3E" onchange="renderCanvas()"></div>
+    </div>
+
+    <div class="modal-section">
+      <div class="slabel">Boundary lines</div>
+      <div class="pr-row"><span class="pr-label">Boundary colour</span><input class="pr-colour" type="color" id="pr-bdry-colour" value="#1a1a1a" onchange="renderCanvas()"></div>
+      <div class="pr-row"><span class="pr-label">Boundary weight (px)</span><input class="pr-input" type="number" id="pr-bdry-weight" min="0.5" max="6" step="0.5" value="2.0" onchange="renderCanvas()"></div>
+      <div class="pr-row"><span class="pr-label">Boundary linetype</span>
+        <select id="pr-bdry-dash" onchange="renderCanvas()" style="font-size:11px;padding:2px 4px;border:0.5px solid var(--border2);border-radius:3px;background:var(--bg3);color:var(--text)">
+          <option value="8,4">Dashed</option>
+          <option value="0">Solid</option>
+          <option value="16,5">Long dash</option>
+          <option value="2,3">Dotted</option>
+        </select>
+      </div>
+      <div class="pr-row"><span class="pr-label">Front boundary colour</span><input class="pr-colour" type="color" id="pr-front-colour" value="#1a1a1a" onchange="renderCanvas()"></div>
+      <div class="pr-row"><span class="pr-label">Front weight (px)</span><input class="pr-input" type="number" id="pr-front-weight" min="0.5" max="6" step="0.5" value="3.0" onchange="renderCanvas()"></div>
+      <div class="pr-row"><span class="pr-label">Front linetype</span>
+        <select id="pr-front-dash" onchange="renderCanvas()" style="font-size:11px;padding:2px 4px;border:0.5px solid var(--border2);border-radius:3px;background:var(--bg3);color:var(--text)">
+          <option value="0">Solid</option>
+          <option value="8,4">Dashed</option>
+          <option value="16,5">Long dash</option>
+          <option value="2,3">Dotted</option>
+        </select>
+      </div>
+      <div class="pr-row"><span class="pr-label">Setback colour</span><input class="pr-colour" type="color" id="pr-setback-colour" value="#1a1a1a" onchange="renderCanvas()"></div>
+      <div class="pr-row"><span class="pr-label">Setback weight (px)</span><input class="pr-input" type="number" id="pr-setback-weight" min="0.5" max="8" step="0.5" value="2.5" onchange="renderCanvas()"></div>
+      <div class="pr-row"><span class="pr-label">Setback dash (px on/off)</span>
+        <select id="pr-setback-dash" onchange="renderCanvas()" style="font-size:11px;padding:2px 4px;border:0.5px solid var(--border2);border-radius:3px;background:var(--bg3);color:var(--text)">
+          <option value="10,5">Dashed 10/5</option>
+          <option value="16,5">Long dash 16/5</option>
+          <option value="4,4">Short dash 4/4</option>
+          <option value="0">Solid</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="modal-section">
+      <div class="slabel">MFL line</div>
+      <div class="pr-row"><span class="pr-label">MFL colour</span><input class="pr-colour" type="color" id="pr-mfl-colour" value="#1A5FA8" onchange="renderCanvas()"></div>
+      <div class="pr-row"><span class="pr-label">MFL weight (px)</span><input class="pr-input" type="number" id="pr-mfl-weight" min="0.5" max="6" step="0.5" value="2.5" onchange="renderCanvas()"></div>
+    </div>
+
+    <div class="modal-section">
+      <div class="slabel">North point</div>
+      <div class="pr-row"><span class="pr-label">Size (px)</span><input class="pr-input" type="number" id="pr-north-size" min="24" max="120" step="4" value="48" onchange="renderCanvas()"></div>
+    </div>
+
+    <div class="modal-section">
+      <div class="slabel">Mesh display</div>
+      <div class="pr-row"><span class="pr-label">Show mesh edges</span><input class="pr-check" type="checkbox" id="pr-mesh-edges" onchange="renderCanvas()"></div>
+    </div>
+
+    <div class="modal-hint">
+      Wheel — zoom · MMB — orbit · Shift+MMB — pan · H — reset<br>
+      Click north point to set plan rotation
+    </div>
+
+    <div class="modal-section">
+      <div class="slabel">Form model</div>
+      <div class="pr-row"><span class="pr-label">Colour</span><input class="pr-colour" type="color" id="pr-model-colour" value="#888888" onchange="renderCanvas()"></div>
+      <div class="pr-row"><span class="pr-label">Opacity</span><input class="pr-input" type="number" id="pr-model-opacity" min="0.1" max="1.0" step="0.05" value="0.45" onchange="renderCanvas()"></div>
+      <div class="pr-row"><span class="pr-label">Show edges</span><input class="pr-check" type="checkbox" id="pr-model-edges" onchange="renderCanvas()"></div>
+    </div>
+
+    <div class="modal-section">
+      <div class="slabel">Shadow</div>
+      <div class="pr-row"><span class="pr-label">Show outline</span><input class="pr-check" type="checkbox" id="pr-shadow-outline" checked onchange="renderCanvas()"></div>
+      <div class="pr-row"><span class="pr-label">Outline colour</span><input class="pr-colour" type="color" id="pr-shadow-colour" value="#222222" onchange="renderCanvas()"></div>
+      <div class="pr-row"><span class="pr-label">Outline weight (px)</span><input class="pr-input" type="number" id="pr-shadow-weight" min="0.5" max="6" step="0.5" value="1.5" onchange="renderCanvas()"></div>
+      <div class="pr-row"><span class="pr-label">Outline type</span>
+        <select id="pr-shadow-dash" onchange="renderCanvas()" style="font-size:11px;padding:2px 4px;border:0.5px solid var(--border2);border-radius:3px;background:var(--bg3);color:var(--text)">
+          <option value="0">Solid</option>
+          <option value="8,4">Dashed</option>
+          <option value="16,5">Long dash</option>
+        </select>
+      </div>
+      <div class="pr-row"><span class="pr-label">Show fill</span><input class="pr-check" type="checkbox" id="pr-shadow-fill" checked onchange="renderCanvas()"></div>
+      <div class="pr-row"><span class="pr-label">Fill colour</span><input class="pr-colour" type="color" id="pr-shadow-fill-colour" value="#000000" onchange="renderCanvas()"></div>
+      <div class="pr-row"><span class="pr-label">Fill opacity</span><input class="pr-input" type="number" id="pr-shadow-fill-opacity" min="0.05" max="1.0" step="0.05" value="0.25" onchange="renderCanvas()"></div>
+    </div>
+
+    <div class="modal-section">
+      <div class="slabel">Form model display</div>
+      <div class="pr-row"><span class="pr-label">Edge colour</span><input class="pr-colour" type="color" id="pr-model-edge-colour" value="#000000" onchange="renderCanvas()"></div>
+      <div class="pr-row"><span class="pr-label">Crease angle (°)</span><input class="pr-input" type="number" id="pr-crease-angle" min="1" max="45" step="1" value="10" onchange="renderCanvas()"></div>
+      <div class="pr-row"><span class="pr-label">FFL line colour</span><input class="pr-colour" type="color" id="pr-ffl-colour" value="#0055cc" onchange="renderCanvas()"></div>
+      <div class="pr-row"><span class="pr-label">Ground intersection colour</span><input class="pr-colour" type="color" id="pr-gnd-colour" value="#ff0000" onchange="renderCanvas()"></div>
+      <div class="pr-row"><span class="pr-label">Intersection weight (px)</span><input class="pr-input" type="number" id="pr-gnd-weight" min="0.5" max="6" step="0.5" value="2.0" onchange="renderCanvas()"></div>
+      <div class="pr-row"><span class="pr-label">Show FFL label</span><input class="pr-check" type="checkbox" id="pr-ffl-label" checked onchange="renderCanvas()"></div>
+    </div>
+
+    <button class="modal-btn" onclick="closeProps()">✓ Apply &amp; close</button>
+  </div>
+</div>
+
+<script>
+// ─── COLLAPSIBLE SECTIONS ────────────────────────────────────────────────────
+const SECT_DEFAULTS = { file:true, params:true, setbacks:true, mfl:false, model:false, shadow:false, rules:false };
+
+function loadSectState() {
+  try { return JSON.parse(localStorage.getItem('insite-panel-sections') || 'null') || null; } catch { return null; }
+}
+function saveSectState() {
+  const st = {};
+  Object.keys(SECT_DEFAULTS).forEach(id => {
+    const body = document.getElementById('sect-body-'+id);
+    if (body) st[id] = !body.classList.contains('hidden');
+  });
+  localStorage.setItem('insite-panel-sections', JSON.stringify(st));
+}
+
+function toggleSect(id, force) {
+  const body = document.getElementById('sect-body-'+id);
+  const hdr  = body?.previousElementSibling;
+  if (!body) return;
+  const open = force !== undefined ? force : body.classList.contains('hidden');
+  body.classList.toggle('hidden', !open);
+  hdr?.classList.toggle('open', open);
+  saveSectState();
+}
+
+function initSections() {
+  const saved = loadSectState();
+  const state = saved || SECT_DEFAULTS;
+  Object.keys(state).forEach(id => toggleSect(id, state[id]));
+}
+
+// ─── DRAGGABLE SPLITTER ───────────────────────────────────────────────────────
+const PANEL_DEFAULTS = { left: 220, right: 280 };
+const PANEL_MIN = { left: 220, right: 280 };
+const PANEL_MAX = { left: 420, right: 480 };
+const CENTRE_MIN = 300;
+
+function getSavedWidths() {
+  try { return JSON.parse(localStorage.getItem('insite-panel-widths') || 'null') || PANEL_DEFAULTS; }
+  catch { return PANEL_DEFAULTS; }
+}
+function saveWidths(left, right) {
+  localStorage.setItem('insite-panel-widths', JSON.stringify({ left, right }));
+}
+function applyWidths(left, right) {
+  document.querySelector('.app').style.gridTemplateColumns = `${left}px 4px 1fr 4px ${right}px`;
+  saveWidths(left, right);
+  renderCanvas();
+}
+function resetSplitter(side) {
+  const w = getSavedWidths();
+  if (side === 'left')  applyWidths(PANEL_DEFAULTS.left, w.right);
+  if (side === 'right') applyWidths(w.left, PANEL_DEFAULTS.right);
+}
+function initSplitters() {
+  const saved = getSavedWidths();
+  applyWidths(saved.left, saved.right);
+
+  ['left','right'].forEach(side => {
+    const el = document.getElementById('splitter-'+side);
+    if (!el) return;
+    el.addEventListener('mousedown', e => {
+      e.preventDefault();
+      el.classList.add('dragging');
+      const startX = e.clientX;
+      const app = document.querySelector('.app');
+      const cols = getComputedStyle(app).gridTemplateColumns.split(' ');
+      const startLeft  = parseInt(cols[0]);
+      const startRight = parseInt(cols[4]);
+
+      const onMove = e => {
+        const dx = e.clientX - startX;
+        const w = getSavedWidths();
+        if (side === 'left') {
+          const newL = Math.max(PANEL_MIN.left, Math.min(PANEL_MAX.left, startLeft + dx));
+          applyWidths(newL, w.right);
+        } else {
+          const newR = Math.max(PANEL_MIN.right, Math.min(PANEL_MAX.right, startRight - dx));
+          applyWidths(w.left, newR);
+        }
+      };
+      const onUp = () => {
+        el.classList.remove('dragging');
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onUp);
+        renderCanvas();
+      };
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+    });
+  });
+}
+
+// ─── FORM MODEL PARSERS ───────────────────────────────────────────────────────
+function parseMTL(text) {
+  // Parse a .mtl file, return map of material name → [r,g,b] 0-1
+  const mats = {};
+  let cur = null;
+  text.split('\n').forEach(line => {
+    line = line.trim();
+    if (line.startsWith('newmtl ')) { cur = line.slice(7).trim(); mats[cur] = [0.8,0.8,0.8]; }
+    else if (line.startsWith('Kd ') && cur) {
+      const p = line.split(/\s+/);
+      mats[cur] = [parseFloat(p[1]), parseFloat(p[2]), parseFloat(p[3])];
+    }
+  });
+  return mats;
+}
+
+function parseOBJ(text, externalMats) {
+  const verts = [], vertColours = [], tris = [], triColours = [];
+  const materials = externalMats ? {...externalMats} : {}; // name → [r,g,b] 0-1
+  let curMat = null;
+  let curMatColour = null;
+  let mtllibRef = null;
+
+  text.split('\n').forEach(line => {
+    line = line.trim();
+    if (line.startsWith('mtllib ')) { mtllibRef = line.slice(7).trim(); }
+    else if (line.startsWith('v ')) {
+      const p = line.split(/\s+/);
+      verts.push([parseFloat(p[1]), parseFloat(p[2]), parseFloat(p[3])]);
+      // Vertex colour: v x y z r g b
+      if (p.length >= 7) {
+        vertColours.push([parseFloat(p[4]), parseFloat(p[5]), parseFloat(p[6])]);
+      } else {
+        vertColours.push(null);
+      }
+    } else if (line.startsWith('newmtl ')) {
+      curMat = line.slice(7).trim();
+      materials[curMat] = null;
+    } else if (line.startsWith('Kd ')) {
+      const p = line.split(/\s+/);
+      if (curMat) materials[curMat] = [parseFloat(p[1]), parseFloat(p[2]), parseFloat(p[3])];
+    } else if (line.startsWith('usemtl ')) {
+      curMat = line.slice(7).trim();
+      curMatColour = materials[curMat] || null;
+    } else if (line.startsWith('f ')) {
+      const idx = line.split(/\s+/).slice(1).map(s => parseInt(s.split('/')[0]) - 1);
+      const pushTri = (a,b,c) => {
+        tris.push([verts[a], verts[b], verts[c]]);
+        // Per-face colour: prefer material, then vertex colours
+        const mc = curMatColour || materials[curMat] || null;
+        if (mc) {
+          triColours.push(mc);
+        } else if (vertColours[a] && vertColours[b] && vertColours[c]) {
+          const r=(vertColours[a][0]+vertColours[b][0]+vertColours[c][0])/3;
+          const g=(vertColours[a][1]+vertColours[b][1]+vertColours[c][1])/3;
+          const bl=(vertColours[a][2]+vertColours[b][2]+vertColours[c][2])/3;
+          triColours.push([r,g,bl]);
+        } else {
+          triColours.push(null);
+        }
+      };
+      // Re-read Kd after usemtl (materials may be defined after usemtl in file)
+      if (curMat && !materials[curMat]) curMatColour = null;
+      else if (curMat) curMatColour = materials[curMat];
+      if (idx.length === 3) pushTri(idx[0],idx[1],idx[2]);
+      else if (idx.length === 4) { pushTri(idx[0],idx[1],idx[2]); pushTri(idx[0],idx[2],idx[3]); }
+    }
+  });
+
+  // Second pass: fill in material colours that were defined after usemtl
+  triColours.forEach((c,i) => {
+    if (!c) {
+      // try to get from material map for that tri — can't easily back-reference, leave null
+    }
+  });
+
+  const valid = tris.map((t,i) => ({t,c:triColours[i]}))
+    .filter(({t}) => t.every(p => p && p.every(n => !isNaN(n))));
+  const colours = valid.some(({c}) => c !== null) ? valid.map(({c}) => c) : null;
+  return { tris: valid.map(({t}) => t), colours, mtllibRef };
+}
+
+function parseSTL(buffer) {
+  const tris = [];
+  const view = new DataView(buffer);
+  // Check ASCII vs binary
+  const header = new TextDecoder().decode(new Uint8Array(buffer, 0, 80));
+  if (header.trim().startsWith('solid')) {
+    // Try ASCII
+    const text = new TextDecoder().decode(buffer);
+    const vRe = /vertex\s+(-?[\d.eE+-]+)\s+(-?[\d.eE+-]+)\s+(-?[\d.eE+-]+)/g;
+    let m, pts = [];
+    while ((m = vRe.exec(text)) !== null) {
+      pts.push([parseFloat(m[1]), parseFloat(m[2]), parseFloat(m[3])]);
+      if (pts.length === 3) { tris.push([...pts]); pts = []; }
+    }
+    if (tris.length) return tris;
+  }
+  // Binary STL
+  const count = view.getUint32(80, true);
+  let off = 84;
+  for (let i = 0; i < count; i++) {
+    off += 12; // normal
+    const tri = [];
+    for (let v = 0; v < 3; v++) {
+      tri.push([view.getFloat32(off,true), view.getFloat32(off+4,true), view.getFloat32(off+8,true)]);
+      off += 12;
+    }
+    off += 2; // attribute
+    tris.push(tri);
+  }
+  return tris;
+}
+
+function applyModelOffset(tris) {
+  const ox = parseFloat(document.getElementById('m-off-x').value) || 0;
+  const oy = parseFloat(document.getElementById('m-off-y').value) || 0;
+  const ffl = parseFloat(document.getElementById('p-ffl').value) || 0;
+  const oz = (parseFloat(document.getElementById('m-off-z').value) || 0) + ffl;
+  return tris.map(tri => tri.map(p => [p[0]+ox, p[1]+oy, p[2]+oz]));
+}
+
+function loadModelFile(file) {
+  const fname = file.name.toLowerCase();
+  const statusEl = document.getElementById('model-add-status');
+  const setStatus = (txt, ok) => {
+    if (statusEl) { statusEl.className = ok?'dz-ok':'dz-err'; statusEl.textContent = txt; }
+  };
+  const done = (tris, fmt, colours, extraProps, statusExtra) => {
+    if (!tris.length) { setStatus(`✕ No geometry found in ${fmt}`, false); return; }
+    setStatus(`✓ ${tris.length} triangles · ${fmt}${statusExtra||''}`, true);
+    const m = addModel(tris, file.name, colours||null);
+    if (extraProps) Object.assign(m, extraProps);
+  };
+  if (fname.endsWith('.mtl')) {
+    // Apply MTL to the currently active model
+    const m = getActiveModel();
+    if (!m) { setStatus('✕ Load an OBJ model first', false); return; }
+    const r=new FileReader();
+    r.onload=ev=>{
+      const mats = parseMTL(ev.target.result);
+      // Re-parse the OBJ with external mats if we have the raw text
+      if (m._objText) {
+        const res = parseOBJ(m._objText, mats);
+        m.triangles = res.tris;
+        m.colours = res.colours;
+        m._cachedCrease = null;
+        setStatus(`✓ colours applied from ${file.name}`, true);
+        refreshModelList(); computeShadow(); updateLegend(); renderCanvas();
+      } else {
+        setStatus('✕ Reload the OBJ to apply MTL colours', false);
+      }
+    };
+    r.readAsText(file);
+    return;
+  }
+  if (fname.endsWith('.obj')) {
+    const r=new FileReader();
+    r.onload=ev=>{
+      const res=parseOBJ(ev.target.result);
+      const m_ref = { _objText: ev.target.result }; // store for later MTL application
+      const colours = res.colours;
+      const hasMtllib = !!res.mtllibRef;
+      const statusExtra = hasMtllib && !colours ? ` — drop ${res.mtllibRef} for colours` : '';
+      done(res.tris,'OBJ',colours, m_ref, statusExtra);
+    };
+    r.readAsText(file);
+  } else if (fname.endsWith('.stl')) {
+    const r=new FileReader(); r.onload=ev=>done(parseSTL(ev.target.result),'STL'); r.readAsArrayBuffer(file);
+  } else if (fname.endsWith('.ifc')) {
+    const r=new FileReader(); r.onload=ev=>done(parseIFC(ev.target.result),'IFC'); r.readAsText(file);
+  } else {
+    setStatus('✕ Unsupported format', false);
+  }
+}
+
+// ─── MULTI-MODEL SYSTEM ──────────────────────────────────────────────────────
+// state.models = [{id, name, triangles, creaseEdges, colour, opacity, showEdges,
+//                  offsetX, offsetY, offsetZ, rotationZ, visible, active, colours[]}]
+
+let modelCounter = 0;
+
+function makeModelId() { return 'model-' + (++modelCounter); }
+
+function faceNormal(tri) {
+  const ax=tri[1][0]-tri[0][0], ay=tri[1][1]-tri[0][1], az=tri[1][2]-tri[0][2];
+  const bx=tri[2][0]-tri[0][0], by=tri[2][1]-tri[0][1], bz=tri[2][2]-tri[0][2];
+  const nx=ay*bz-az*by, ny=az*bx-ax*bz, nz=ax*by-ay*bx;
+  const len=Math.sqrt(nx*nx+ny*ny+nz*nz)||1;
+  return [nx/len, ny/len, nz/len];
+}
+
+function buildCreaseEdges(tris, creaseAngleDeg) {
+  // For each pair of adjacent triangles, flag edge as crease if dihedral > threshold
+  const cos_thresh = Math.cos(creaseAngleDeg * Math.PI / 180);
+  const edgeMap = new Map();
+  tris.forEach((tri, ti) => {
+    for (let e = 0; e < 3; e++) {
+      const a = tri[e], b = tri[(e+1)%3];
+      const key = [a,b].map(p=>p.map(n=>n.toFixed(4)).join(',')).sort().join('|');
+      if (!edgeMap.has(key)) edgeMap.set(key, { pts:[a,b], tris:[], normals:[] });
+      const entry = edgeMap.get(key);
+      entry.tris.push(ti);
+      entry.normals.push(faceNormal(tri));
+    }
+  });
+  const creaseEdges = [];
+  edgeMap.forEach(({ pts, tris: ts, normals }) => {
+    if (ts.length === 1) {
+      creaseEdges.push(pts); // silhouette edge
+    } else if (ts.length === 2) {
+      const dot = normals[0][0]*normals[1][0] + normals[0][1]*normals[1][1] + normals[0][2]*normals[1][2];
+      if (dot < cos_thresh) creaseEdges.push(pts); // crease
+    }
+  });
+  return creaseEdges;
+}
+
+function applyModelTransform(tri, m) {
+  // Model Z=0 = house floor level. offsetZ positions the floor on site. No global FFL.
+  const ox = m.offsetX || 0, oy = m.offsetY || 0, oz = m.offsetZ || 0;
+  const rot = (m.rotationZ || 0) * Math.PI / 180;
+  const cos_r = Math.cos(rot), sin_r = Math.sin(rot);
+  return tri.map(p => {
+    const rx = p[0]*cos_r - p[1]*sin_r;
+    const ry = p[0]*sin_r + p[1]*cos_r;
+    return [rx+ox, ry+oy, p[2]+oz];
+  });
+}
+
+function getModelTris(m) {
+  return m.triangles.map(tri => applyModelTransform(tri, m));
+}
+
+function getModelCreaseEdges(m) {
+  const creaseAngle = getProps().creaseAngle;
+  if (!m._cachedCrease || m._cachedCreaseAngle !== creaseAngle) {
+    m._cachedCrease = buildCreaseEdges(m.triangles, creaseAngle);
+    m._cachedCreaseAngle = creaseAngle;
+  }
+  return m._cachedCrease.map(seg => seg.map(p => {
+    const ox = m.offsetX||0, oy = m.offsetY||0, oz = m.offsetZ||0;
+    const rot = (m.rotationZ||0)*Math.PI/180;
+    const cos_r=Math.cos(rot), sin_r=Math.sin(rot);
+    const rx=p[0]*cos_r-p[1]*sin_r, ry=p[0]*sin_r+p[1]*cos_r;
+    return [rx+ox, ry+oy, p[2]+oz];
+  }));
+}
+
+function computeGroundIntersection(m) {
+  // Find where model surfaces intersect the actual TIN terrain mesh.
+  // For each model triangle edge, compute signed distance above terrain at each endpoint.
+  // Where sign changes → intersection exists → interpolate crossing point.
+  if (!state.triangles.length) return [];
+  const mTris = getModelTris(m);
+  const segs = [];
+  mTris.forEach(tri => {
+    // Compute signed height above terrain for each vertex
+    const diff = tri.map(p => {
+      const tz = terrainZAt(p[0], p[1]);
+      return tz === null ? null : p[2] - tz; // + = above, - = below
+    });
+    const pts = [];
+    for (let e = 0; e < 3; e++) {
+      const a = tri[e], b = tri[(e+1)%3];
+      const da = diff[e], db = diff[(e+1)%3];
+      if (da === null || db === null) continue;
+      if ((da >= 0) === (db >= 0)) continue; // same side — no crossing
+      const t = da / (da - db);
+      const xi = a[0] + t*(b[0]-a[0]);
+      const yi = a[1] + t*(b[1]-a[1]);
+      const tz = terrainZAt(xi, yi);
+      if (tz !== null) pts.push([xi, yi, tz]);
+    }
+    if (pts.length === 2) segs.push(pts);
+  });
+  return segs;
+}
+
+function addModel(tris, filename, colours) {
+  const id = makeModelId();
+  const name = 'House ' + modelCounter;
+  const m = {
+    id, name, filename,
+    triangles: tris,
+    colours: colours || null,
+    colour: '#888888', opacity: 0.45, showEdges: false,
+    offsetX:0, offsetY:0, offsetZ:0, rotationZ:0,
+    visible:true, active:false,
+    _cachedCrease: null, _cachedCreaseAngle: null
+  };
+  state.models.push(m);
+  setActiveModel(id);
+  refreshModelList();
+  toggleSect('model', true);
+  toggleSect('shadow', true);
+  computeShadow();
+  updateLegend();
+  renderCanvas();
+  return m;
+}
+
+function removeModel(id) {
+  state.models = state.models.filter(m => m.id !== id);
+  if (state.models.length) setActiveModel(state.models[state.models.length-1].id);
+  else { document.getElementById('model-detail').style.display='none'; }
+  refreshModelList();
+  computeShadow(); updateLegend(); renderCanvas();
+}
+
+function setActiveModel(id) {
+  state.models.forEach(m => m.active = m.id === id);
+  const m = state.models.find(m => m.active);
+  const det = document.getElementById('model-detail');
+  if (m) {
+    det.style.display = 'block';
+    document.getElementById('m-name').value = m.name;
+    document.getElementById('m-off-x').value = m.offsetX;
+    document.getElementById('m-off-y').value = m.offsetY;
+    document.getElementById('m-off-z').value = m.offsetZ;
+    document.getElementById('m-rot').value = m.rotationZ;
+    document.getElementById('m-colour').value = m.colour;
+    document.getElementById('m-opacity').value = m.opacity;
+    document.getElementById('m-edges').checked = m.showEdges;
+  }
+  refreshModelList();
+}
+
+function updateActiveModel() {
+  const m = state.models.find(m => m.active);
+  if (!m) return;
+  m.name = document.getElementById('m-name').value || m.name;
+  m.offsetX = parseFloat(document.getElementById('m-off-x').value)||0;
+  m.offsetY = parseFloat(document.getElementById('m-off-y').value)||0;
+  m.offsetZ = parseFloat(document.getElementById('m-off-z').value)||0;
+  m.rotationZ = parseFloat(document.getElementById('m-rot').value)||0;
+  m.colour = document.getElementById('m-colour').value;
+  m.opacity = parseFloat(document.getElementById('m-opacity').value)||0.45;
+  m.showEdges = document.getElementById('m-edges').checked;
+  refreshModelList();
+  computeShadow(); updateLegend(); renderCanvas();
+}
+
+function refreshModelList() {
+  const list = document.getElementById('model-list');
+  if (!list) return;
+  list.innerHTML = '';
+  state.models.forEach(m => {
+    const row = document.createElement('div');
+    row.style.cssText = `display:flex;align-items:center;gap:5px;padding:5px 7px;border-radius:4px;border:0.5px solid ${m.active?'var(--amber)':'var(--border)'};background:${m.active?'var(--amber-faint)':'var(--bg3)'};cursor:pointer`;
+    row.innerHTML = `
+      <div style="width:12px;height:12px;border-radius:2px;background:${m.colour};opacity:${m.opacity};flex-shrink:0"></div>
+      <span style="font-size:11px;flex:1;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${m.name}</span>
+      <button onclick="event.stopPropagation();toggleModelVisible('${m.id}')" style="border:none;background:none;cursor:pointer;font-size:11px;color:var(--text3);padding:0" title="${m.visible?'Hide':'Show'}">${m.visible?'👁':'○'}</button>
+      <button onclick="event.stopPropagation();removeModel('${m.id}')" style="border:none;background:none;cursor:pointer;font-size:11px;color:var(--red);padding:0" title="Remove">✕</button>`;
+    row.addEventListener('click', () => setActiveModel(m.id));
+    list.appendChild(row);
+  });
+}
+
+function toggleModelVisible(id) {
+  const m = state.models.find(m => m.id===id);
+  if (m) { m.visible = !m.visible; refreshModelList(); computeShadow(); updateLegend(); renderCanvas(); }
+}
+
+// Model drag state
+let modelDrag = null;
+
+function getActiveModel() { return state.models.find(m => m.active) || null; }
+
+// ─── SPA SUN POSITION ─────────────────────────────────────────────────────────
+// NREL Solar Position Algorithm — public domain, pure JS
+function sunPosition(lat, lon, date, timeStr) {
+  const [h, m] = timeStr.split(':').map(Number);
+  const d = new Date(date + 'T' + timeStr + ':00');
+  const JD = d.getTime() / 86400000 + 2440587.5;
+  const n = JD - 2451545.0;
+  const L = (280.46 + 0.9856474 * n) % 360;
+  const g = (357.528 + 0.9856003 * n) % 360;
+  const gr = g * Math.PI / 180;
+  const lam = L + 1.915 * Math.sin(gr) + 0.020 * Math.sin(2*gr);
+  const lamR = lam * Math.PI / 180;
+  const ep = 23.439 - 0.0000004 * n;
+  const epR = ep * Math.PI / 180;
+  const ra = Math.atan2(Math.cos(epR)*Math.sin(lamR), Math.cos(lamR));
+  const dec = Math.asin(Math.sin(epR)*Math.sin(lamR));
+  const GMST = (6.697375 + 0.0657098242 * n + h + m/60) % 24;
+  const LST = (GMST + lon/15 + 24) % 24;
+  const HA = (LST - ra * 12 / Math.PI + 24) % 24 - 12;
+  const HAr = HA * Math.PI / 12;
+  const latR = lat * Math.PI / 180;
+  const alt = Math.asin(Math.sin(latR)*Math.sin(dec) + Math.cos(latR)*Math.cos(dec)*Math.cos(HAr));
+  const azNum = -Math.sin(HAr)*Math.cos(dec);
+  const azDen = Math.sin(latR)*Math.cos(dec)*Math.cos(HAr) - Math.cos(latR)*Math.sin(dec);
+  const az = (Math.atan2(azNum, azDen) * 180 / Math.PI + 360) % 360;
+  return { alt: alt * 180 / Math.PI, az };
+}
+
+function getSunDir() {
+  const lat = parseFloat(document.getElementById('sh-lat')?.value) || -43.53;
+  const lon = parseFloat(document.getElementById('sh-lon')?.value) || 172.62;
+  const date = document.getElementById('sh-date')?.value || '2026-06-21';
+  const time = document.getElementById('sh-time')?.value || '12:00';
+  const pos = sunPosition(lat, lon, date, time);
+  const readout = document.getElementById('sh-readout');
+  if (readout) readout.textContent = `Sun: ${pos.alt.toFixed(1)}° alt · ${pos.az.toFixed(1)}° az`;
+  if (pos.alt <= 0) return null; // sun below horizon
+  const azR = pos.az * Math.PI / 180;
+  const altR = pos.alt * Math.PI / 180;
+  return {
+    x:  Math.sin(azR) * Math.cos(altR),
+    y: -Math.cos(azR) * Math.cos(altR),
+    z:  Math.sin(altR)
+  };
+}
+
+// ─── SHADOW OUTLINE ──────────────────────────────────────────────────────────
+function computeShadow() {
+  state.shadowLit = null;
+  state.shadowPoly = [];
+  if (!document.getElementById('sh-show')?.checked) { updateLegend(); return; }
+  const sunDir = getSunDir();
+  if (!sunDir) { updateLegend(); return; }
+
+  const dir = [sunDir.x, sunDir.y, sunDir.z];
+
+  // Collect all occluder triangles: terrain + visible models
+  const occluders = [...state.triangles];
+  (state.models||[]).filter(m=>m.visible).forEach(m => occluders.push(...getModelTris(m)));
+
+  // Möller–Trumbore ray-triangle intersection
+  function rayHitsTri(orig, tri) {
+    const eps = 1e-10;
+    const e1=[tri[1][0]-tri[0][0], tri[1][1]-tri[0][1], tri[1][2]-tri[0][2]];
+    const e2=[tri[2][0]-tri[0][0], tri[2][1]-tri[0][1], tri[2][2]-tri[0][2]];
+    const h=[dir[1]*e2[2]-dir[2]*e2[1], dir[2]*e2[0]-dir[0]*e2[2], dir[0]*e2[1]-dir[1]*e2[0]];
+    const a=e1[0]*h[0]+e1[1]*h[1]+e1[2]*h[2];
+    if (Math.abs(a)<eps) return false;
+    const f=1/a;
+    const s=[orig[0]-tri[0][0], orig[1]-tri[0][1], orig[2]-tri[0][2]];
+    const u=f*(s[0]*h[0]+s[1]*h[1]+s[2]*h[2]);
+    if (u<0||u>1) return false;
+    const q=[s[1]*e1[2]-s[2]*e1[1], s[2]*e1[0]-s[0]*e1[2], s[0]*e1[1]-s[1]*e1[0]];
+    const v=f*(dir[0]*q[0]+dir[1]*q[1]+dir[2]*q[2]);
+    if (v<0||u+v>1) return false;
+    return f*(e2[0]*q[0]+e2[1]*q[1]+e2[2]*q[2]) > 0.05; // 5cm min distance
+  }
+
+  // Classify terrain triangles — back-face first, then ray test
+  const nTerrain = state.triangles.length;
+  const lit = state.triangles.map((tri, i) => {
+    const n = faceNormal ? null : null; // compute inline
+    const ax=tri[1][0]-tri[0][0], ay=tri[1][1]-tri[0][1], az=tri[1][2]-tri[0][2];
+    const bx=tri[2][0]-tri[0][0], by=tri[2][1]-tri[0][1], bz=tri[2][2]-tri[0][2];
+    const nx=ay*bz-az*by, ny=az*bx-ax*bz, nz=ax*by-ay*bx;
+    const dot = nx*dir[0]+ny*dir[1]+nz*dir[2];
+    if (dot <= 0) return false; // back-face = always shadowed
+
+    const c = state.centroids[i];
+    // Offset origin by 5cm in sun direction to avoid self-hit
+    const orig = [c[0]+dir[0]*0.05, c[1]+dir[1]*0.05, c[2]+dir[2]*0.05];
+
+    // Test against all occluders except this triangle
+    for (let j=0; j<occluders.length; j++) {
+      if (j===i) continue; // skip self
+      if (rayHitsTri(orig, occluders[j])) return false;
+    }
+    return true;
+  });
+
+  state.shadowLit = lit;
+
+  // Build edge adjacency using tri+vertex indices as key (exact, no float rounding)
+  // We need to store vertex coordinates indexed by a canonical key
+  const vtxMap = new Map();
+  const getVKey = p => `${p[0].toFixed(6)},${p[1].toFixed(6)},${p[2].toFixed(6)}`;
+  const edgeMap = new Map();
+
+  state.triangles.forEach((tri, ti) => {
+    for (let e=0; e<3; e++) {
+      const a=tri[e], b=tri[(e+1)%3];
+      const ka=getVKey(a), kb=getVKey(b);
+      const key=[ka,kb].sort().join('||');
+      if (!edgeMap.has(key)) edgeMap.set(key, { a, b, tris:[] });
+      edgeMap.get(key).tris.push(ti);
+    }
+  });
+
+  const boundarySegs = [];
+  edgeMap.forEach(({ a, b, tris }) => {
+    const isBoundary =
+      (tris.length===2 && lit[tris[0]] !== lit[tris[1]]) ||
+      (tris.length===1 && !lit[tris[0]]);
+    if (isBoundary) boundarySegs.push([a, b]);
+  });
+
+  state.shadowPoly = boundarySegs.map(seg => drapeSegment(seg[0], seg[1], 3));
+  updateLegend();
+}
+
+// ─── IFC PARSER ─────────────────────────────────────────────────────────────
+function parseIFC(text) {
+  const triangles = [];
+  const pattern = /IFCCARTESIANPOINTLIST3D\(\((.+?)\),\$\)/g;
+  let m;
+  while ((m = pattern.exec(text)) !== null) {
+    const pts = [];
+    const ptPat = /\((-?[\d.Ee+\-]+),(-?[\d.Ee+\-]+),(-?[\d.Ee+\-]+)\)/g;
+    let pm;
+    while ((pm = ptPat.exec(m[1])) !== null) {
+      pts.push([parseFloat(pm[1]), parseFloat(pm[2]), parseFloat(pm[3])]);
+    }
+    if (pts.length === 3) triangles.push(pts);
+  }
+  return triangles;
+}
+
+// ─── BOUNDARY PARSER ─────────────────────────────────────────────────────────
+function parseBoundary(text) {
+  const geoElPat = /#(\d+)=IFCGEOGRAPHICELEMENT\(([^)]+)\)/gi;
+  let gm;
+  while ((gm = geoElPat.exec(text)) !== null) {
+    const args = gm[2];
+    const parts = args.split(',');
+    const objType = (parts[4] || '').replace(/'/g,'').trim().toLowerCase();
+    if (!objType.includes('boundary') && !objType.includes('cadastral') && !objType.includes('title')) continue;
+
+    // Placement offset
+    const placementRef = parts[5] ? parts[5].trim().replace('#','') : null;
+    let offsetX=0, offsetY=0, offsetZ=0;
+    if (placementRef) {
+      const lpM = new RegExp(`#${placementRef}=IFCLOCALPLACEMENT\\([^,]*,#(\\d+)\\)`).exec(text);
+      if (lpM) {
+        const ap3dM = new RegExp(`#${lpM[1]}=IFCAXIS2PLACEMENT3D\\(#(\\d+)`).exec(text);
+        if (ap3dM) {
+          const cpM = new RegExp(`#${ap3dM[1]}=IFCCARTESIANPOINT\\(\\((-?[\\d.Ee+\\-]+),(-?[\\d.Ee+\\-]+),(-?[\\d.Ee+\\-]+)\\)\\)`).exec(text);
+          if (cpM) { offsetX=parseFloat(cpM[1]); offsetY=parseFloat(cpM[2]); offsetZ=parseFloat(cpM[3]); }
+        }
+      }
+    }
+
+    const shapeRef = parts[6] ? parts[6].trim().replace('#','') : null;
+    if (!shapeRef) continue;
+
+    // IfcProductDefinitionShape → collect all shape rep refs
+    const pdsM = new RegExp(`#${shapeRef}=IFCPRODUCTDEFINITIONSHAPE\\([^)]*\\((.+?)\\)\\)`).exec(text);
+    if (!pdsM) continue;
+    const srIds = (pdsM[1].match(/#(\d+)/g) || []).map(r => r.replace('#',''));
+
+    let allPoints = null;
+
+    for (const srId of srIds) {
+      const srM = new RegExp(`#${srId}=IFCSHAPEREPRESENTATION\\([^)]*\\((.+?)\\)\\)`).exec(text);
+      if (!srM) continue;
+      const geomRefs = (srM[1].match(/#(\d+)/g) || []).map(r => r.replace('#',''));
+
+      for (const gRef of geomRefs) {
+
+        // Path A: IfcPolygonalfaceSet
+        const pfsM = new RegExp(`#${gRef}=IFCPOLYGONALFACESET\\(#(\\d+),\\$,\\(#(\\d+)\\),\\$\\)`).exec(text);
+        if (pfsM) {
+          const plM = new RegExp(`#${pfsM[1]}=IFCCARTESIANPOINTLIST3D\\(\\((.+?)\\),\\$\\)`).exec(text);
+          if (plM) {
+            const rawPts = [];
+            const ptPat = /\((-?[\d.Ee+\-]+),(-?[\d.Ee+\-]+),(-?[\d.Ee+\-]+)\)/g;
+            let pm;
+            while ((pm = ptPat.exec(plM[1])) !== null)
+              rawPts.push([parseFloat(pm[1])+offsetX, parseFloat(pm[2])+offsetY, parseFloat(pm[3])+offsetZ]);
+            const faceM = new RegExp(`#${pfsM[2]}=IFCINDEXEDPOLYGONALFACE\\(\\(([\\d,]+)\\)\\)`).exec(text);
+            let pts = rawPts;
+            if (faceM) { const idx=faceM[1].split(',').map(n=>parseInt(n)-1); pts=idx.map(i=>rawPts[i]); }
+            if (pts.length >= 3) { allPoints = pts; break; }
+          }
+        }
+
+        // Path B: IfcIndexedPolyCurve (Bonsai Curve3D export)
+        const ipcM = new RegExp(`#${gRef}=IFCINDEXEDPOLYCURVE\\(#(\\d+)`).exec(text);
+        if (ipcM) {
+          const plM = new RegExp(`#${ipcM[1]}=IFCCARTESIANPOINTLIST3D\\(\\(([\\s\\S]+?)\\),\\$\\)`).exec(text);
+          if (plM) {
+            const pts = [];
+            const ptPat = /\((-?[\d.Ee+\-]+),(-?[\d.Ee+\-]+),(-?[\d.Ee+\-]+)\)/g;
+            let pm;
+            while ((pm = ptPat.exec(plM[1])) !== null)
+              pts.push([parseFloat(pm[1])+offsetX, parseFloat(pm[2])+offsetY, parseFloat(pm[3])+offsetZ]);
+            // Remove closing duplicate if polygon is closed
+            if (pts.length > 3) {
+              const f=pts[0], l=pts[pts.length-1];
+              if (Math.abs(f[0]-l[0])<0.001 && Math.abs(f[1]-l[1])<0.001) pts.pop();
+            }
+            // Keep longest
+            if (pts.length >= 3 && (!allPoints || pts.length > allPoints.length))
+              allPoints = pts;
+          }
+        }
+      }
+      if (allPoints && allPoints.length >= 3) break;
+    }
+
+    if (allPoints && allPoints.length >= 3)
+      return { points: allPoints, objectType: parts[4].replace(/'/g,'').trim() };
+  }
+  return null;
+}
+
+// ─── GEOMETRY ───────────────────────────────────────────────────────────────
+function slopeDeg(tri) {
+  const ax = tri[1][0]-tri[0][0], ay = tri[1][1]-tri[0][1], az = tri[1][2]-tri[0][2];
+  const bx = tri[2][0]-tri[0][0], by = tri[2][1]-tri[0][1], bz = tri[2][2]-tri[0][2];
+  const nx = ay*bz - az*by, ny = az*bx - ax*bz, nz = ax*by - ay*bx;
+  const mag = Math.sqrt(nx*nx + ny*ny + nz*nz);
+  if (mag < 1e-10) return 0;
+  return Math.acos(Math.min(1, Math.abs(nz) / mag)) * 180 / Math.PI;
+}
+
+function triCentroid(tri) {
+  return [(tri[0][0]+tri[1][0]+tri[2][0])/3, (tri[0][1]+tri[1][1]+tri[2][1])/3, (tri[0][2]+tri[1][2]+tri[2][2])/3];
+}
+
+function aspectDeg(tri) {
+  const ax = tri[1][0]-tri[0][0], ay = tri[1][1]-tri[0][1], az = tri[1][2]-tri[0][2];
+  const bx = tri[2][0]-tri[0][0], by = tri[2][1]-tri[0][1], bz = tri[2][2]-tri[0][2];
+  const nx = ay*bz - az*by, ny = az*bx - ax*bz;
+  return (Math.atan2(nx, ny) * 180 / Math.PI + 360) % 360;
+}
+
+function triArea2D(tri) {
+  const ax = tri[1][0]-tri[0][0], ay = tri[1][1]-tri[0][1];
+  const bx = tri[2][0]-tri[0][0], by = tri[2][1]-tri[0][1];
+  return Math.abs(ax*by - ay*bx) / 2;
+}
+
+// ─── COLOUR MAPS ────────────────────────────────────────────────────────────
+function hexToRgb(hex) {
+  const r = parseInt(hex.slice(1,3),16), g = parseInt(hex.slice(3,5),16), b = parseInt(hex.slice(5,7),16);
+  return [r,g,b];
+}
+function lerpRgb(a, b, t) {
+  return [Math.round(a[0]+(b[0]-a[0])*t), Math.round(a[1]+(b[1]-a[1])*t), Math.round(a[2]+(b[2]-a[2])*t)];
+}
+
+function slopeColour(deg, thresh, props) {
+  const lo  = hexToRgb(props?.slopeLo  || '#0F7A58');
+  const mid = hexToRgb(props?.slopeMid || '#B86B0A');
+  const hi  = hexToRgb(props?.slopeHi  || '#C13333');
+  if (deg >= thresh) return hi;
+  if (deg >= 8) return mid;
+  return lo;
+}
+
+function elevColour(z, zMin, zMax, props) {
+  const t = zMax > zMin ? (z - zMin) / (zMax - zMin) : 0.5;
+  const lo = hexToRgb(props?.elevLo || '#1D9E75');
+  const hi = hexToRgb(props?.elevHi || '#C13333');
+  // 3-stop: lo → mid-warm → hi
+  const mid = [Math.round((lo[0]+hi[0])/2+20), Math.round((lo[1]+hi[1])/2), Math.round((lo[2]+hi[2])/2-20)];
+  if (t < 0.5) return lerpRgb(lo, mid, t*2);
+  return lerpRgb(mid, hi, (t-0.5)*2);
+}
+
+function aspectColour(deg, props) {
+  const from = hexToRgb(props?.aspectFrom || '#1a1a1a');
+  const to   = hexToRgb(props?.aspectTo   || '#888880');
+  // Circular: interpolate around hue cycle using from/to as N/S anchors
+  const t = (1 - Math.cos(deg * Math.PI / 180)) / 2;
+  return lerpRgb(from, to, t);
+}
+
+// ─── STATE ───────────────────────────────────────────────────────────────────
+let state = {
+  triangles: [],
+  slopes: [],
+  aspects: [],
+  centroids: [],
+  zMin: 0, zMax: 0,
+  xMin: 0, xMax: 0, yMin: 0, yMax: 0,
+  viewMode: 'elevation',
+  mfl: null,
+  analysed: false,
+  filename: '',
+  boundary: null,
+  models: [],
+  shadowLit: null,
+  shadowPoly: [],
+  renderSc: 1
+};
+
+// ─── CAMERA ──────────────────────────────────────────────────────────────────
+let cam = {
+  azimuth: 0,
+  elevation: 90,
+  zoom: 1,
+  panX: 0, panY: 0,
+  dragging: false,
+  panning: false,
+  lastX: 0, lastY: 0,
+  namedView: 'plan',
+  planRotation: 0    // degrees — rotates plan view; north point counter-rotates
+};
+
+const NAMED_VIEWS = {
+  plan:  { az: 0,   el: 90, label: 'Plan' },
+  front: { az: 0,   el: 5,  label: 'Front elev' },
+  right: { az: 90,  el: 5,  label: 'Right elev' },
+  rear:  { az: 180, el: 5,  label: 'Rear elev' },
+  left:  { az: 270, el: 5,  label: 'Left elev' },
+};
+
+function setView(name) {
+  const v = NAMED_VIEWS[name];
+  if (!v) return;
+  cam.azimuth = v.az;
+  cam.elevation = v.el;
+  cam.namedView = name;
+  cam.panX = 0; cam.panY = 0;
+  renderCanvas();
+}
+
+function resetView() {
+  cam.zoom = 1; cam.panX = 0; cam.panY = 0;
+  cam.azimuth = 0; cam.elevation = 90;
+  cam.namedView = 'plan';
+  renderCanvas();
+}
+
+// ─── PROJECTION ──────────────────────────────────────────────────────────────
+// cam.namedView: 'plan'|'front'|'right'|'rear'|'left'|null (null = free orbit)
+// Named views use strict orthographic with no axis leakage.
+// Free orbit uses rotation-matrix orthographic (parallel, no perspective divide).
+
+function project(x, y, z) {
+  const cx = (state.xMin + state.xMax) / 2;
+  const cy = (state.yMin + state.yMax) / 2;
+  const cz = (state.zMin + state.zMax) / 2;
+  let dx = x - cx, dy = y - cy;
+  const dz = z - cz;
+
+  // Apply plan rotation (north orientation) to XY before projection
+  if (cam.planRotation !== 0) {
+    const pr = cam.planRotation * Math.PI / 180;
+    const rdx = dx * Math.cos(pr) - dy * Math.sin(pr);
+    const rdy = dx * Math.sin(pr) + dy * Math.cos(pr);
+    dx = rdx; dy = rdy;
+  }
+
+  switch (cam.namedView) {
+    case 'plan':  return [dx, dy, -dz];
+    case 'front': return [dx, dz, -dy];
+    case 'rear':  return [-dx, dz, dy];
+    case 'right': return [-dy, dz, dx];
+    case 'left':  return [dy, dz, -dx];
+    default: {
+      const az = cam.azimuth * Math.PI / 180;
+      const el = cam.elevation * Math.PI / 180;
+      const rx = dx * Math.cos(az) + dy * Math.sin(az);
+      const ry = -dx * Math.sin(az) + dy * Math.cos(az);
+      const rz = dz;
+      const tilt = (Math.PI / 2) - el;
+      const sx = rx;
+      const sy = ry * Math.cos(tilt) + rz * Math.sin(tilt);
+      const depth = -ry * Math.sin(tilt) + rz * Math.cos(tilt);
+      return [sx, sy, depth];
+    }
+  }
+}
+
+// ─── CONTOUR GENERATION ──────────────────────────────────────────────────────
+function generateContours(interval) {
+  if (!state.triangles.length || interval <= 0) return [];
+  const zMin = state.zMin, zMax = state.zMax;
+  const levels = [];
+  for (let z = Math.ceil(zMin / interval) * interval; z <= zMax; z += interval) {
+    levels.push(+z.toFixed(6));
+  }
+  const segments = {};
+  levels.forEach(z => { segments[z] = []; });
+
+  state.triangles.forEach(tri => {
+    const pts = tri;
+    levels.forEach(z => {
+      const segs = [];
+      for (let i = 0; i < 3; i++) {
+        const a = pts[i], b = pts[(i+1)%3];
+        if ((a[2] <= z && b[2] > z) || (b[2] <= z && a[2] > z)) {
+          const t = (z - a[2]) / (b[2] - a[2]);
+          segs.push([a[0] + t*(b[0]-a[0]), a[1] + t*(b[1]-a[1])]);
+        }
+      }
+      if (segs.length === 2) segments[z].push(segs);
+    });
+  });
+  return { levels, segments };
+}
+
+// ─── CANVAS RENDER ───────────────────────────────────────────────────────────
+function renderCanvas() {
+  const canvas = document.getElementById('terrain-canvas');
+  const centre = document.getElementById('centre');
+  const W = centre.clientWidth, H = centre.clientHeight;
+  canvas.width = W; canvas.height = H;
+  const ctx = canvas.getContext('2d');
+  ctx.clearRect(0, 0, W, H);
+
+  if (!state.triangles.length) return;
+
+  // Project all unique verts to get screen bounds for auto-fit
+  const allPts = state.triangles.flat();
+  const projected = allPts.map(p => project(p[0], p[1], p[2]));
+  const sxs = projected.map(p => p[0]), sys = projected.map(p => p[1]);
+  const pxMin = Math.min(...sxs), pxMax = Math.max(...sxs);
+  const pyMin = Math.min(...sys), pyMax = Math.max(...sys);
+  const pad = 48;
+  const spanPX = pxMax - pxMin || 1, spanPY = pyMax - pyMin || 1;
+  const sc = Math.min((W - pad*2) / spanPX, (H - pad*2) / spanPY) * cam.zoom;
+  const midX = (pxMin + pxMax) / 2, midY = (pyMin + pyMax) / 2;
+
+  const toS = (px, py) => [
+    W/2 + (px - midX) * sc + cam.panX,
+    H/2 - (py - midY) * sc + cam.panY
+  ];
+  state.renderSc = sc; // cache for drag scale
+
+  const props = getProps();
+  const slopeThresh = parseFloat(document.getElementById('p-slope').value) || 15;
+
+  // Sort triangles by depth (painter's algorithm)
+  const withDepth = state.triangles.map((tri, i) => {
+    const d = (project(tri[0][0],tri[0][1],tri[0][2])[2] +
+               project(tri[1][0],tri[1][1],tri[1][2])[2] +
+               project(tri[2][0],tri[2][1],tri[2][2])[2]) / 3;
+    return { tri, i, d };
+  });
+  withDepth.sort((a, b) => a.d - b.d);
+
+  // Draw triangles
+  withDepth.forEach(({ tri, i }) => {
+    let col;
+    const gradOn =
+      state.viewMode === 'slope'     ? props.gradSlope :
+      state.viewMode === 'elevation' ? props.gradElev  : props.gradAspect;
+
+    if (!gradOn) {
+      col = [255, 255, 255];
+    } else if (state.viewMode === 'slope') {
+      col = slopeColour(state.slopes[i], slopeThresh, props);
+    } else if (state.viewMode === 'elevation') {
+      col = elevColour(state.centroids[i][2], state.zMin, state.zMax, props);
+    } else {
+      col = aspectColour(state.aspects[i], props);
+    }
+
+    const alpha = !gradOn ? 1.0
+      : state.viewMode === 'slope'
+        ? (state.slopes[i] >= slopeThresh ? 0.78 : state.slopes[i] >= 8 ? 0.65 : 0.55)
+        : 0.72;
+
+    const p0 = project(tri[0][0],tri[0][1],tri[0][2]);
+    const p1 = project(tri[1][0],tri[1][1],tri[1][2]);
+    const p2 = project(tri[2][0],tri[2][1],tri[2][2]);
+    const [x0,y0] = toS(p0[0],p0[1]);
+    const [x1,y1] = toS(p1[0],p1[1]);
+    const [x2,y2] = toS(p2[0],p2[1]);
+
+    ctx.beginPath();
+    ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.lineTo(x2,y2); ctx.closePath();
+    ctx.fillStyle = gradOn
+      ? `rgba(${col[0]},${col[1]},${col[2]},${alpha})`
+      : '#ffffff';
+    ctx.fill();
+    if (props.meshEdges || !gradOn) {
+      ctx.strokeStyle = gradOn
+        ? `rgba(${col[0]},${col[1]},${col[2]},0.12)`
+        : 'rgba(60,55,45,0.18)';
+      ctx.lineWidth = 0.4;
+      ctx.stroke();
+    }
+  });
+
+  // MFL zone overlay
+  if (state.mfl !== null) {
+    ctx.save();
+    state.triangles.forEach((tri, i) => {
+      if (state.centroids[i][2] < state.mfl) {
+        const p0 = project(tri[0][0],tri[0][1],tri[0][2]);
+        const p1 = project(tri[1][0],tri[1][1],tri[1][2]);
+        const p2 = project(tri[2][0],tri[2][1],tri[2][2]);
+        const [x0,y0] = toS(p0[0],p0[1]);
+        const [x1,y1] = toS(p1[0],p1[1]);
+        const [x2,y2] = toS(p2[0],p2[1]);
+        ctx.beginPath();
+        ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.lineTo(x2,y2); ctx.closePath();
+        ctx.fillStyle = props.mflColour.replace(')', ',0.18)').replace('rgb(','rgba(') || 'rgba(26,95,168,0.18)';
+        ctx.fill();
+      }
+    });
+    ctx.restore();
+  }
+
+  // Contour lines
+  const contourInterval = parseFloat(document.getElementById('p-contour').value) || 0.25;
+  const contours = generateContours(contourInterval);
+  if (contours && props.showContours) {
+    ctx.save();
+    contours.levels.forEach((z, li) => {
+      const isMajor = (li % 5 === 0);
+      ctx.strokeStyle = props.contourColour;
+      ctx.lineWidth = isMajor ? props.contourThickMajor : props.contourThickMinor;
+      ctx.globalAlpha = isMajor ? 0.85 : 0.55;
+      const segsAtZ = contours.segments[z] || [];
+      segsAtZ.forEach(seg => {
+        const pa = project(seg[0][0], seg[0][1], z);
+        const pb = project(seg[1][0], seg[1][1], z);
+        const [ax, ay] = toS(pa[0], pa[1]);
+        const [bx, by] = toS(pb[0], pb[1]);
+        ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+      });
+      // Label the first segment of each major contour at its first point
+      if (isMajor && segsAtZ.length > 0) {
+        ctx.globalAlpha = 0.9;
+        const seg = segsAtZ[0];
+        const pa = project(seg[0][0], seg[0][1], z);
+        const [lx, ly] = toS(pa[0], pa[1]);
+        const label = z.toFixed(2);
+        ctx.font = `bold 10px DM Sans, system-ui, sans-serif`;
+        const tw = ctx.measureText(label).width;
+        ctx.fillStyle = 'rgba(245,244,241,0.82)';
+        ctx.fillRect(lx - 1, ly - 11, tw + 4, 13);
+        ctx.fillStyle = props.contourColour;
+        ctx.fillText(label, lx + 1, ly);
+      }
+    });
+    ctx.globalAlpha = 1;
+    ctx.restore();
+  }
+
+  // MFL contour line
+  if (state.mfl !== null) {
+    ctx.save();
+    const mflContours = generateContours(0.001);
+    if (mflContours) {
+      const closest = Object.keys(mflContours.segments)
+        .map(Number).reduce((a,b) => Math.abs(a-state.mfl)<Math.abs(b-state.mfl)?a:b, Infinity);
+      const mflSegsArr = mflContours.segments[closest] || [];
+      ctx.strokeStyle = props.mflColour;
+      ctx.lineWidth = props.mflWeight;
+      ctx.setLineDash([6, 3]);
+      mflSegsArr.forEach(seg => {
+        const pa = project(seg[0][0], seg[0][1], state.mfl);
+        const pb = project(seg[1][0], seg[1][1], state.mfl);
+        const [ax,ay] = toS(pa[0],pa[1]);
+        const [bx,by] = toS(pb[0],pb[1]);
+        ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke();
+      });
+      ctx.setLineDash([]);
+      // Label MFL at first segment end point
+      if (mflSegsArr.length > 0) {
+        const seg = mflSegsArr[0];
+        const pa = project(seg[1][0], seg[1][1], state.mfl);
+        const [lx, ly] = toS(pa[0], pa[1]);
+        const label = `MFL ${state.mfl.toFixed(2)}`;
+        ctx.font = 'bold 11px DM Sans, system-ui, sans-serif';
+        const tw = ctx.measureText(label).width;
+        ctx.fillStyle = 'rgba(230,241,251,0.92)';
+        ctx.fillRect(lx + 2, ly - 13, tw + 6, 15);
+        ctx.fillStyle = '#1A5FA8';
+        ctx.fillText(label, lx + 5, ly - 1);
+      }
+    }
+    ctx.restore();
+  }
+
+  // Legal boundary + setback envelope
+  if (state.boundary) {
+    document.getElementById('bdry-leg-row').style.display = 'flex';
+    const bpts = state.boundary.points;
+    state.edgeScreenCoords = [];
+    ctx.save();
+
+    // Per-edge drawing — draped onto terrain surface
+    if (state.boundaryEdges && state.boundaryEdges.length) {
+      state.boundaryEdges.forEach((e, i) => {
+        const isFront = e.type === 'front';
+        ctx.strokeStyle = isFront ? props.frontColour : props.bdryColour;
+        ctx.lineWidth   = isFront ? props.frontWeight : props.bdryWeight;
+        ctx.setLineDash(isFront ? props.frontDash : (props.bdryDash.length ? props.bdryDash : [8,4]));
+        ctx.globalAlpha = 0.92;
+
+        // Use draped points if available, else straight line
+        const drawPts = e.drapedPts || [e.from, e.to];
+        ctx.beginPath();
+        let sx0, sy0, sx1, sy1;
+        drawPts.forEach((pt, j) => {
+          const p = project(pt[0], pt[1], pt[2]);
+          const [sx,sy] = toS(p[0],p[1]);
+          if (j===0) { ctx.moveTo(sx,sy); sx0=sx; sy0=sy; }
+          else        { ctx.lineTo(sx,sy); sx1=sx; sy1=sy; }
+        });
+        ctx.stroke();
+
+        // Store screen segment endpoints for hit-testing (start→end of draped line)
+        state.edgeScreenCoords.push({
+          x0: sx0, y0: sy0,
+          x1: sx1 !== undefined ? sx1 : sx0,
+          y1: sy1 !== undefined ? sy1 : sy0,
+          index: i
+        });
+
+        // Corner dot at edge start
+        ctx.setLineDash([]);
+        ctx.fillStyle = isFront ? props.frontColour : props.bdryColour;
+          const ps = project(e.from[0], e.from[1], e.drapedPts ? e.drapedPts[0][2] : e.from[2]);
+        const [dsx,dsy] = toS(ps[0],ps[1]);
+        ctx.beginPath(); ctx.arc(dsx,dsy,3,0,Math.PI*2); ctx.fill();
+      });
+    } else {
+      // No classified edges — raw boundary fallback
+      ctx.strokeStyle = '#8B2FC9'; ctx.lineWidth = 2;
+      ctx.setLineDash([8,4]); ctx.globalAlpha = 0.9;
+      ctx.beginPath();
+      bpts.forEach((pt,i) => {
+        const p = project(pt[0],pt[1],pt[2]);
+        const [sx,sy] = toS(p[0],p[1]);
+        state.edgeScreenCoords.push({x0:sx,y0:sy,x1:sx,y1:sy,index:i});
+        if (i===0) ctx.moveTo(sx,sy); else ctx.lineTo(sx,sy);
+      });
+      ctx.closePath(); ctx.stroke();
+    }
+
+    // Hover highlight in edge-pick mode
+    if (state.edgePickMode && state.hoverEdgeIdx >= 0 && state.edgeScreenCoords[state.hoverEdgeIdx]) {
+      const seg = state.edgeScreenCoords[state.hoverEdgeIdx];
+      ctx.strokeStyle = '#C13333'; ctx.lineWidth = 5;
+      ctx.globalAlpha = 0.7; ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(seg.x0,seg.y0); ctx.lineTo(seg.x1,seg.y1); ctx.stroke();
+    }
+
+    // Boundary label — use draped Z so it sits on the terrain surface
+    ctx.setLineDash([]); ctx.globalAlpha = 1;
+    const lblZ = (state.boundaryEdges && state.boundaryEdges[0] && state.boundaryEdges[0].drapedPts)
+      ? state.boundaryEdges[0].drapedPts[0][2]
+      : (terrainZAt(bpts[0][0], bpts[0][1]) || bpts[0][2]);
+    const lp = project(bpts[0][0], bpts[0][1], lblZ);
+    const [lx,ly] = toS(lp[0],lp[1]);
+    ctx.font = '11px DM Sans, system-ui, sans-serif';
+    const lbl = state.boundary.objectType || 'Boundary';
+    const tw = ctx.measureText(lbl).width;
+    ctx.fillStyle = 'rgba(245,244,241,0.88)'; ctx.fillRect(lx+5,ly-13,tw+6,15);
+    ctx.fillStyle = props.bdryColour; ctx.fillText(lbl, lx+8, ly-1);
+    ctx.restore();
+
+    // Setback envelope — draped, thick dashed orange
+    const setbackDraw = state.setbackPolyDraped || (state.setbackPoly ? state.setbackPoly.map(p=>[p[0],p[1],0]) : null);
+    if (setbackDraw && setbackDraw.length >= 3) {
+      document.getElementById('setback-leg-row').style.display = 'flex';
+      ctx.save();
+      ctx.strokeStyle = props.setbackColour;
+      ctx.lineWidth = props.setbackWeight;
+      ctx.setLineDash(props.setbackDash.length ? props.setbackDash : [10,5]);
+      ctx.globalAlpha = 0.88;
+      ctx.beginPath();
+      setbackDraw.forEach((pt, i) => {
+        const p = project(pt[0], pt[1], pt[2] || 0);
+        const [sx,sy] = toS(p[0],p[1]);
+        if (i===0) ctx.moveTo(sx,sy); else ctx.lineTo(sx,sy);
+      });
+      ctx.stroke();
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
+  }
+
+  // Shadow fill — drawn BEFORE models so models show on top
+  if (state.shadowLit && props.shadowFill) {
+    const fillRgb = hexToRgb(props.shadowFillColour || '#000000');
+    const fillA = props.shadowFillOpacity || 0.25;
+    ctx.save();
+    state.triangles.forEach((tri, i) => {
+      if (state.shadowLit[i]) return; // lit — skip
+      const p0=project(tri[0][0],tri[0][1],tri[0][2]);
+      const p1=project(tri[1][0],tri[1][1],tri[1][2]);
+      const p2=project(tri[2][0],tri[2][1],tri[2][2]);
+      const [x0,y0]=toS(p0[0],p0[1]), [x1,y1]=toS(p1[0],p1[1]), [x2,y2]=toS(p2[0],p2[1]);
+      ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.lineTo(x2,y2); ctx.closePath();
+      ctx.fillStyle = `rgba(${fillRgb[0]},${fillRgb[1]},${fillRgb[2]},${fillA})`;
+      ctx.fill();
+    });
+    ctx.restore();
+  }
+
+  // Form models — multi-model render
+  (state.models||[]).filter(m=>m.visible).forEach(m => {
+    const mTris = getModelTris(m);
+    const rgb = hexToRgb(m.colour || '#888888');
+    const mAlpha = m.opacity || 0.45;
+    const ffl = parseFloat(document.getElementById('p-ffl')?.value) || 0;
+
+    // Depth sort
+    const sorted = mTris.map((tri,i) => ({
+      tri, i,
+      d: (project(tri[0][0],tri[0][1],tri[0][2])[2]+
+          project(tri[1][0],tri[1][1],tri[1][2])[2]+
+          project(tri[2][0],tri[2][1],tri[2][2])[2])/3
+    })).sort((a,b)=>a.d-b.d);
+
+    // Build crease edge set keyed by transformed vertex pairs (for per-tri lookup)
+    const creaseSet = new Set();
+    if (m.showEdges) {
+      getModelCreaseEdges(m).forEach(seg => {
+        const k = [seg[0],seg[1]].map(p=>p.map(n=>n.toFixed(3)).join(',')).sort().join('||');
+        creaseSet.add(k);
+      });
+    }
+    const eRgb = hexToRgb(props.modelEdgeColour || '#000000');
+
+    ctx.save();
+    // Hidden-line removal: per triangle, fill first then draw its crease edges
+    // Nearer tris drawn later overpaints farther tris' edges naturally
+    sorted.forEach(({ tri, i }) => {
+      const cz = (tri[0][2]+tri[1][2]+tri[2][2])/3;
+      const belowGround = cz < (m.offsetZ || 0);
+      const alpha = belowGround ? mAlpha * 0.3 : mAlpha;
+
+      // Per-face colour (OBJ materials) or model base colour
+      let fR=rgb[0], fG=rgb[1], fB=rgb[2];
+      if (m.colours && m.colours[i]) {
+        const fc = m.colours[i];
+        fR=Math.round(fc[0]*255); fG=Math.round(fc[1]*255); fB=Math.round(fc[2]*255);
+      }
+
+      const p0=project(tri[0][0],tri[0][1],tri[0][2]);
+      const p1=project(tri[1][0],tri[1][1],tri[1][2]);
+      const p2=project(tri[2][0],tri[2][1],tri[2][2]);
+      const [x0,y0]=toS(p0[0],p0[1]), [x1,y1]=toS(p1[0],p1[1]), [x2,y2]=toS(p2[0],p2[1]);
+
+      // 1. Fill triangle
+      ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.lineTo(x2,y2); ctx.closePath();
+      ctx.fillStyle = `rgba(${fR},${fG},${fB},${alpha})`;
+      ctx.fill();
+
+      // 2. Draw crease edges for THIS triangle (hidden line removal via painter's algo)
+      if (m.showEdges) {
+        const verts = [tri[0],tri[1],tri[2]];
+        const spts = [[x0,y0],[x1,y1],[x2,y2]];
+        for (let e=0; e<3; e++) {
+          const a=verts[e], b=verts[(e+1)%3];
+          const ek=[a,b].map(p=>p.map(n=>n.toFixed(3)).join(',')).sort().join('||');
+          if (creaseSet.has(ek)) {
+            ctx.beginPath(); ctx.moveTo(spts[e][0],spts[e][1]); ctx.lineTo(spts[(e+1)%3][0],spts[(e+1)%3][1]);
+            ctx.strokeStyle=`rgb(${eRgb[0]},${eRgb[1]},${eRgb[2]})`; ctx.lineWidth=0.8;
+            ctx.stroke();
+          }
+        }
+      }
+    });
+
+    // Active model selection highlight (drawn after all tris)
+    if (m.active && state.models.length > 1) {
+      ctx.setLineDash([4,3]);
+      ctx.strokeStyle = '#B86B0A';
+      ctx.lineWidth = 1.5; ctx.globalAlpha = 0.7;
+      sorted.forEach(({ tri }) => {
+        const p0=project(tri[0][0],tri[0][1],tri[0][2]);
+        const p1=project(tri[1][0],tri[1][1],tri[1][2]);
+        const p2=project(tri[2][0],tri[2][1],tri[2][2]);
+        const [x0,y0]=toS(p0[0],p0[1]), [x1,y1]=toS(p1[0],p1[1]), [x2,y2]=toS(p2[0],p2[1]);
+        ctx.beginPath(); ctx.moveTo(x0,y0); ctx.lineTo(x1,y1); ctx.lineTo(x2,y2); ctx.closePath(); ctx.stroke();
+      });
+      ctx.setLineDash([]); ctx.globalAlpha=1;
+    }
+
+    // Ground intersection polyline (where model crosses FFL plane) — red by default
+    const gndSegs = computeGroundIntersection(m);
+    if (gndSegs.length) {
+      const gRgb = hexToRgb(props.gndColour || '#ff0000');
+      ctx.save();
+      ctx.strokeStyle = `rgb(${gRgb[0]},${gRgb[1]},${gRgb[2]})`;
+      ctx.lineWidth = props.gndWeight || 2.0;
+      gndSegs.forEach(seg => {
+        const pa=project(seg[0][0],seg[0][1],seg[0][2]);
+        const pb=project(seg[1][0],seg[1][1],seg[1][2]);
+        const [ax,ay]=toS(pa[0],pa[1]), [bx,by]=toS(pb[0],pb[1]);
+        ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke();
+      });
+      ctx.restore();
+    }
+
+    // FFL line — base outline of model (edges where Z≈0 in model local space)
+    // projected at the model's site Z = m.offsetZ (model's own FFL on site)
+    const modelFFL = m.offsetZ || 0;
+    if (props.fflColour) {
+      const tol = 0.05; // 5cm tolerance for "on the floor"
+      const baseSegs = [];
+      m.triangles.forEach(tri => {
+        for (let e=0; e<3; e++) {
+          const a=tri[e], b=tri[(e+1)%3];
+          if (Math.abs(a[2]) <= tol && Math.abs(b[2]) <= tol) {
+            // Transform edge applying rotation + XY offset, Z = model's own FFL
+            const rot=(m.rotationZ||0)*Math.PI/180;
+            const cr=Math.cos(rot), sr=Math.sin(rot);
+            const ox=m.offsetX||0, oy=m.offsetY||0;
+            const ta=[a[0]*cr-a[1]*sr+ox, a[0]*sr+a[1]*cr+oy, modelFFL];
+            const tb=[b[0]*cr-b[1]*sr+ox, b[0]*sr+b[1]*cr+oy, modelFFL];
+            baseSegs.push([ta, tb]);
+          }
+        }
+      });
+      // Deduplicate (same edge appears in 2 tris)
+      const seen = new Set();
+      const uniqueSegs = baseSegs.filter(seg => {
+        const k=[seg[0],seg[1]].map(p=>p.map(n=>n.toFixed(3)).join(',')).sort().join('|');
+        if (seen.has(k)) return false; seen.add(k); return true;
+      });
+      if (uniqueSegs.length) {
+        ctx.save();
+        const fc = hexToRgb(props.fflColour || '#0055cc');
+        ctx.strokeStyle = `rgb(${fc[0]},${fc[1]},${fc[2]})`;
+        ctx.lineWidth = 2; ctx.setLineDash([6,3]);
+        uniqueSegs.forEach(seg => {
+          const pa=project(seg[0][0],seg[0][1],seg[0][2]);
+          const pb=project(seg[1][0],seg[1][1],seg[1][2]);
+          const [ax,ay]=toS(pa[0],pa[1]), [bx,by]=toS(pb[0],pb[1]);
+          ctx.beginPath(); ctx.moveTo(ax,ay); ctx.lineTo(bx,by); ctx.stroke();
+        });
+        ctx.setLineDash([]);
+        if (props.fflLabel && uniqueSegs.length) {
+          const seg=uniqueSegs[0];
+          const pa=project(seg[0][0],seg[0][1],seg[0][2]);
+          const [lx,ly]=toS(pa[0],pa[1]);
+          ctx.font='bold 10px DM Sans, system-ui, sans-serif';
+          const lbl=`FFL ${modelFFL>=0?'+':''}${modelFFL.toFixed(3)}`;
+          const tw=ctx.measureText(lbl).width;
+          ctx.fillStyle='rgba(245,244,241,0.92)'; ctx.fillRect(lx+2,ly-13,tw+5,14);
+          ctx.fillStyle=`rgb(${fc[0]},${fc[1]},${fc[2]})`; ctx.fillText(lbl,lx+4,ly-1);
+        }
+        ctx.restore();
+      }
+    }
+
+    ctx.restore();
+  });
+
+  // Shadow outline — draped boundary segments
+  if (state.shadowPoly && state.shadowPoly.length && props.shadowOutline) {
+    ctx.save();
+    const sRgb = hexToRgb(props.shadowColour||'#222222');
+    ctx.strokeStyle = `rgb(${sRgb[0]},${sRgb[1]},${sRgb[2]})`;
+    ctx.lineWidth = props.shadowWeight||1.5;
+    ctx.setLineDash(props.shadowDash&&props.shadowDash.length?props.shadowDash:[]);
+    ctx.globalAlpha = 0.9;
+    state.shadowPoly.forEach(seg => {
+      ctx.beginPath();
+      seg.forEach((pt,i) => {
+        const p=project(pt[0],pt[1],pt[2]);
+        const [sx,sy]=toS(p[0],p[1]);
+        if (i===0) ctx.moveTo(sx,sy); else ctx.lineTo(sx,sy);
+      });
+      ctx.stroke();
+    });
+    ctx.setLineDash([]); ctx.globalAlpha=1;
+    ctx.restore();
+  }
+
+  // Dasu-style scale bar — alternating segments, 0m and 5m labels
+  const barCandidates = [1, 2, 5, 10, 20];
+  const maxBarPx = W * 0.20;
+  let barTotal = 5; // total bar distance in metres
+  for (const c of barCandidates) { if (c * sc <= maxBarPx) barTotal = c; }
+  const segs = 4; // always 4 segments
+  const segM = barTotal / segs;
+  const segPx = segM * sc;
+  const barPx = segPx * segs;
+  const barH = 8, barY = H - 28, barX = 14;
+  ctx.save();
+  // Background pill
+  ctx.fillStyle = 'rgba(245,244,241,0.92)';
+  ctx.beginPath();
+  ctx.roundRect ? ctx.roundRect(barX-4, barY-4, barPx+8+50, barH+18, 3) :
+    ctx.rect(barX-4, barY-4, barPx+8+50, barH+18);
+  ctx.fill();
+  // Alternating segments
+  for (let s = 0; s < segs; s++) {
+    ctx.fillStyle = s % 2 === 0 ? '#1a1a1a' : '#ffffff';
+    ctx.fillRect(barX + s * segPx, barY, segPx, barH);
+  }
+  // Outline
+  ctx.strokeStyle = '#1a1a1a'; ctx.lineWidth = 1;
+  ctx.strokeRect(barX, barY, barPx, barH);
+  // Inner segment dividers
+  ctx.lineWidth = 0.5;
+  for (let s = 1; s < segs; s++) {
+    ctx.beginPath();
+    ctx.moveTo(barX + s*segPx, barY);
+    ctx.lineTo(barX + s*segPx, barY + barH);
+    ctx.stroke();
+  }
+  // Labels: 0m at left, midpoint, end
+  ctx.fillStyle = '#1a1a1a';
+  ctx.font = '11px DM Sans, system-ui, sans-serif';
+  ctx.textAlign = 'center';
+  ctx.fillText('0m', barX, barY + barH + 11);
+  const midM = barTotal / 2;
+  ctx.fillText(`${Number.isInteger(midM) ? midM : midM.toFixed(1)}m`, barX + barPx/2, barY + barH + 11);
+  ctx.fillText(`${barTotal}m`, barX + barPx, barY + barH + 11);
+  ctx.textAlign = 'left';
+  ctx.restore();
+
+  // North point — Dasu SVG style: bold ring, navigation arrow, bottom-right
+  const nSize = props.northSize || 52;
+  const nX = W - nSize/2 - 14;
+  const nY = H - nSize/2 - 44;
+  const nR = nSize/2;
+  const northAngle = cam.planRotation * Math.PI / 180;
+  ctx.save();
+  // Ring: no fill, bold stroke (matches Dasu SVG)
+  ctx.beginPath(); ctx.arc(nX, nY, nR, 0, Math.PI*2);
+  ctx.fillStyle = '#ffffff'; ctx.fill();
+  ctx.strokeStyle = '#333333'; ctx.lineWidth = Math.max(2.5, nR*0.14); ctx.stroke();
+  // Arrow: Dasu SVG polygon scaled to nR
+  // Original: 0,-16 / -13.23,16 / 0,4.72 / 13.23,16 — total height 32.06, half=16.06
+  // Scale factor: nR*0.71 maps to 16
+  ctx.translate(nX, nY);
+  ctx.rotate(-northAngle);
+  const nS = nR / 16.06; // scale from SVG units
+  ctx.beginPath();
+  ctx.moveTo(0,     -16.06 * nS);
+  ctx.lineTo(-13.23 * nS,  16.06 * nS);
+  ctx.lineTo(0,       4.72 * nS);
+  ctx.lineTo( 13.23 * nS,  16.06 * nS);
+  ctx.closePath();
+  ctx.fillStyle = '#222222'; ctx.fill();
+  ctx.resetTransform();
+  ctx.restore();
+  state.northWidget = null;
+
+  // Coords/info bar
+  const spanX = state.xMax - state.xMin, spanY = state.yMax - state.yMin;
+  updateLegend();
+  document.getElementById('coords-w').textContent =
+    `${spanX.toFixed(1)} × ${spanY.toFixed(1)} m  ·  Z ${state.zMin.toFixed(2)}–${state.zMax.toFixed(2)} m  ·  az ${Math.round(cam.azimuth)}° el ${Math.round(cam.elevation)}°`;
+}
+
+// ─── SETBACK GEOMETRY ────────────────────────────────────────────────────────
+
+function polyArea2D(pts) {
+  // Shoelace — returns signed area (positive = CCW)
+  let a = 0;
+  const n = pts.length;
+  for (let i = 0; i < n; i++) {
+    const j = (i + 1) % n;
+    a += pts[i][0] * pts[j][1];
+    a -= pts[j][0] * pts[i][1];
+  }
+  return a / 2;
+}
+
+function lineIntersect2D(p1, d1, p2, d2) {
+  // Intersection of two infinite lines defined by point + direction
+  const cross = d1[0]*d2[1] - d1[1]*d2[0];
+  if (Math.abs(cross) < 1e-10) return null; // parallel
+  const dx = p2[0]-p1[0], dy = p2[1]-p1[1];
+  const t = (dx*d2[1] - dy*d2[0]) / cross;
+  return [p1[0] + t*d1[0], p1[1] + t*d1[1]];
+}
+
+function offsetPolygon(edges) {
+  // Per-edge non-uniform inward offset
+  // edges: [{from:[x,y,z], to:[x,y,z], setback:n}, ...]
+  const pts2d = edges.map(e => [e.from[0], e.from[1]]);
+  const area = polyArea2D(pts2d);
+  const ccw = area > 0; // true = CCW winding
+
+  const n = edges.length;
+  // For each edge compute offset line origin + direction
+  const offLines = edges.map(e => {
+    const dx = e.to[0] - e.from[0];
+    const dy = e.to[1] - e.from[1];
+    const len = Math.sqrt(dx*dx + dy*dy);
+    if (len < 1e-10) return null;
+    const ux = dx/len, uy = dy/len;
+    // Inward normal: CCW polygon → rotate CW → (uy, -ux)
+    const nx = ccw ? -uy :  uy;
+    const ny = ccw ?  ux : -ux;
+    const s = e.setback;
+    return {
+      origin: [e.from[0] + nx*s, e.from[1] + ny*s],
+      dir:    [ux, uy],
+      normal: [nx, ny]
+    };
+  });
+
+  // Find intersection of each adjacent pair of offset lines → new vertices
+  const result = [];
+  for (let i = 0; i < n; i++) {
+    const a = offLines[i];
+    const b = offLines[(i+1) % n];
+    if (!a || !b) continue;
+    const pt = lineIntersect2D(a.origin, a.dir, b.origin, b.dir);
+    if (pt) result.push(pt);
+    else result.push(a.origin); // fallback: parallel edges
+  }
+  return result; // [[x,y], ...]
+}
+
+function pointInPolygon2D(px, py, poly) {
+  // Ray-casting
+  let inside = false;
+  const n = poly.length;
+  for (let i = 0, j = n-1; i < n; j = i++) {
+    const xi = poly[i][0], yi = poly[i][1];
+    const xj = poly[j][0], yj = poly[j][1];
+    if (((yi>py) !== (yj>py)) && (px < (xj-xi)*(py-yi)/(yj-yi)+xi)) inside = !inside;
+  }
+  return inside;
+}
+
+function edgeMidpoint2D(from, to) {
+  return [(from[0]+to[0])/2, (from[1]+to[1])/2];
+}
+
+function dist2D(a, b) {
+  return Math.sqrt((a[0]-b[0])**2 + (a[1]-b[1])**2);
+}
+
+// ─── TERRAIN DRAPING ─────────────────────────────────────────────────────────
+function pointInTriangle2D(px, py, ax, ay, bx, by, cx, cy) {
+  const d1 = (px-bx)*(ay-by) - (ax-bx)*(py-by);
+  const d2 = (px-cx)*(by-cy) - (bx-cx)*(py-cy);
+  const d3 = (px-ax)*(cy-ay) - (cx-ax)*(py-ay);
+  const hasNeg = (d1<0)||(d2<0)||(d3<0);
+  const hasPos = (d1>0)||(d2>0)||(d3>0);
+  return !(hasNeg && hasPos);
+}
+
+function terrainZAt(px, py) {
+  for (const tri of state.triangles) {
+    const [ax,ay,az] = tri[0], [bx,by,bz] = tri[1], [cx,cy,cz] = tri[2];
+    if (!pointInTriangle2D(px,py,ax,ay,bx,by,cx,cy)) continue;
+    // Barycentric interpolation
+    const denom = (by-cy)*(ax-cx) + (cx-bx)*(ay-cy);
+    if (Math.abs(denom) < 1e-10) return (az+bz+cz)/3;
+    const u = ((by-cy)*(px-cx) + (cx-bx)*(py-cy)) / denom;
+    const v = ((cy-ay)*(px-cx) + (ax-cx)*(py-cy)) / denom;
+    const w = 1 - u - v;
+    return u*az + v*bz + w*cz;
+  }
+  return null; // outside mesh extent
+}
+
+function drapeSegment(from, to, subs) {
+  // Subdivide edge into subs+1 points, drape each onto terrain
+  const pts = [];
+  for (let i = 0; i <= subs; i++) {
+    const t = i / subs;
+    const x = from[0] + t*(to[0]-from[0]);
+    const y = from[1] + t*(to[1]-from[1]);
+    const z = terrainZAt(x, y);
+    // Fallback: linear interpolate original Z if outside mesh
+    const zFallback = from[2] + t*(to[2]-from[2]);
+    pts.push([x, y, z !== null ? z : zFallback]);
+  }
+  return pts;
+}
+
+function drapePolyline(verts, subs, close) {
+  // Drape a full polyline (optionally closed), returns flat array of [x,y,z]
+  const result = [];
+  const n = verts.length;
+  const count = close ? n : n - 1;
+  for (let i = 0; i < count; i++) {
+    const from = verts[i];
+    const to   = verts[(i+1) % n];
+    const seg  = drapeSegment(from, to, subs);
+    if (i < count-1) seg.pop(); // avoid duplicate junction point
+    result.push(...seg);
+  }
+  if (close && result.length) result.push(result[0]); // close
+  return result;
+}
+
+// ─── ROAD FRONTAGE PARSER ────────────────────────────────────────────────────
+function parseRoadFrontage(text) {
+  const results = [];
+  const geoElPat = /#(\d+)=IFCGEOGRAPHICELEMENT\(([^;]+)\)/gi;
+  let gm;
+  while ((gm = geoElPat.exec(text)) !== null) {
+    const args = gm[2].split(',');
+    const objType = (args[4] || '').replace(/'/g,'').trim().toLowerCase();
+    if (!objType.includes('frontage') && !objType.includes('roadfront') && !objType.includes('road_front')) continue;
+
+    // Get placement offset
+    const placementRef = (args[5] || '').trim().replace('#','');
+    let ox=0, oy=0, oz=0;
+    if (placementRef) {
+      const lpM = new RegExp(`#${placementRef}=IFCLOCALPLACEMENT\\([^,]*,#(\\d+)\\)`).exec(text);
+      if (lpM) {
+        const apM = new RegExp(`#${lpM[1]}=IFCAXIS2PLACEMENT3D\\(#(\\d+)`).exec(text);
+        if (apM) {
+          const cpM = new RegExp(`#${apM[1]}=IFCCARTESIANPOINT\\(\\((-?[\\d.Ee+\\-]+),(-?[\\d.Ee+\\-]+),(-?[\\d.Ee+\\-]+)\\)\\)`).exec(text);
+          if (cpM) { ox=parseFloat(cpM[1]); oy=parseFloat(cpM[2]); oz=parseFloat(cpM[3]); }
+        }
+      }
+    }
+
+    // Get geometry — find IfcCartesianPointList3D with exactly 2 points via shape rep chain
+    const shapeRef = (args[6] || '').trim().replace('#','');
+    if (!shapeRef) continue;
+    const pdsM = new RegExp(`#${shapeRef}=IFCPRODUCTDEFINITIONSHAPE\\([^)]*\\(#(\\d+)\\)\\)`).exec(text);
+    if (!pdsM) continue;
+    const srM = new RegExp(`#${pdsM[1]}=IFCSHAPEREPRESENTATION\\([^)]*\\(#(\\d+)\\)\\)`).exec(text);
+    if (!srM) continue;
+    const geomRef = srM[1];
+
+    // Try IfcPolygonalfaceSet first
+    const pfsM = new RegExp(`#${geomRef}=IFCPOLYGONALFACESET\\(#(\\d+)`).exec(text);
+    if (pfsM) {
+      const plM = new RegExp(`#${pfsM[1]}=IFCCARTESIANPOINTLIST3D\\(\\((.+?)\\),\\$\\)`).exec(text);
+      if (plM) {
+        const pts = [];
+        const ptPat = /\((-?[\d.Ee+\-]+),(-?[\d.Ee+\-]+),(-?[\d.Ee+\-]+)\)/g;
+        let pm;
+        while ((pm = ptPat.exec(plM[1])) !== null) {
+          pts.push([parseFloat(pm[1])+ox, parseFloat(pm[2])+oy, parseFloat(pm[3])+oz]);
+        }
+        if (pts.length >= 2) results.push({ from: pts[0], to: pts[pts.length-1] });
+        continue;
+      }
+    }
+
+    // Try IfcPolyline → IfcCartesianPoint refs
+    const plineM = new RegExp(`#${geomRef}=IFCPOLYLINE\\(\\(([^)]+)\\)\\)`).exec(text);
+    if (plineM) {
+      const refs = plineM[1].match(/#(\d+)/g) || [];
+      const pts = refs.map(r => {
+        const cpM = new RegExp(`#${r.slice(1)}=IFCCARTESIANPOINT\\(\\((-?[\\d.Ee+\\-]+),(-?[\\d.Ee+\\-]+)(?:,(-?[\\d.Ee+\\-]+))?\\)\\)`).exec(text);
+        if (!cpM) return null;
+        return [parseFloat(cpM[1])+ox, parseFloat(cpM[2])+oy, parseFloat(cpM[3]||'0')+oz];
+      }).filter(Boolean);
+      if (pts.length >= 2) results.push({ from: pts[0], to: pts[pts.length-1] });
+    }
+  }
+  return results; // [{from:[x,y,z], to:[x,y,z]}, ...]
+}
+
+// ─── BOUNDARY EDGE CLASSIFICATION ────────────────────────────────────────────
+function classifyBoundaryEdges() {
+  if (!state.boundary) return;
+  const pts = state.boundary.points;
+  const n = pts.length;
+  const frontSetback = parseFloat(document.getElementById('p-setback-front').value) || 3.0;
+  const sideSetback  = parseFloat(document.getElementById('p-setback-side').value)  || 1.5;
+
+  // Build edge array
+  state.boundaryEdges = [];
+  for (let i = 0; i < n; i++) {
+    const from = pts[i];
+    const to   = pts[(i+1) % n];
+    state.boundaryEdges.push({
+      from, to, index: i,
+      type: 'side',  // default — future: 'rear' when we can distinguish
+      setback: sideSetback,
+      // Hook for recession planes (populated in future sprint)
+      recessionPlane: null
+    });
+  }
+
+  // Tag front edges from IFC RoadFrontage elements
+  const frontEdgesFromIFC = state.roadFrontage || [];
+  let ifcFrontCount = 0;
+  frontEdgesFromIFC.forEach(fl => {
+    const flMid = edgeMidpoint2D(fl.from, fl.to);
+    // Find closest boundary edge by midpoint distance
+    let bestIdx = -1, bestDist = Infinity;
+    state.boundaryEdges.forEach((e, i) => {
+      const d = dist2D(edgeMidpoint2D(e.from, e.to), flMid);
+      if (d < bestDist) { bestDist = d; bestIdx = i; }
+    });
+    if (bestIdx >= 0 && bestDist < 5.0) { // 5m tolerance
+      state.boundaryEdges[bestIdx].type = 'front';
+      state.boundaryEdges[bestIdx].setback = frontSetback;
+      ifcFrontCount++;
+    }
+  });
+
+  // Tag session-picked front edges (fallback mode)
+  if (state.sessionFrontEdges) {
+    state.sessionFrontEdges.forEach(idx => {
+      if (state.boundaryEdges[idx]) {
+        state.boundaryEdges[idx].type = 'front';
+        state.boundaryEdges[idx].setback = frontSetback;
+      }
+    });
+  }
+
+  // Reapply side setback to non-front edges (in case setback values changed)
+  state.boundaryEdges.forEach(e => {
+    if (e.type !== 'front') e.setback = sideSetback;
+  });
+
+  // Compute setback polygon
+  state.setbackPoly = offsetPolygon(state.boundaryEdges);
+
+  // Compute site area
+  const pts2d = pts.map(p => [p[0], p[1]]);
+  state.siteArea = Math.abs(polyArea2D(pts2d));
+
+  // Compute setback envelope area
+  if (state.setbackPoly && state.setbackPoly.length >= 3) {
+    state.envelopeArea = Math.abs(polyArea2D(state.setbackPoly));
+  } else {
+    state.envelopeArea = null;
+  }
+
+  // ── Drape boundary edges onto terrain surface ─────────────────────────────
+  const SUBS = 12; // subdivisions per edge — smooth enough for a ~10m site
+  if (state.triangles.length) {
+    state.boundaryEdges.forEach(e => {
+      e.drapedPts = drapeSegment(e.from, e.to, SUBS);
+    });
+
+    // Drape setback polygon (Z=0 verts → terrain surface)
+    if (state.setbackPoly && state.setbackPoly.length >= 3) {
+      const setbackVerts = state.setbackPoly.map(p => [p[0], p[1], 0]);
+      state.setbackPolyDraped = drapePolyline(setbackVerts, SUBS, true);
+    } else {
+      state.setbackPolyDraped = null;
+    }
+  }
+
+  // Update frontage status UI
+  updateFrontageStatus(ifcFrontCount);
+}
+
+function updateFrontageStatus(ifcCount) {
+  const statusEl = document.getElementById('frontage-status');
+  const btnEl    = document.getElementById('btn-pick-frontage');
+  if (!state.boundary) {
+    statusEl.textContent = 'No boundary loaded';
+    statusEl.style.color = 'var(--text3)';
+    btnEl.style.display = 'none';
+    return;
+  }
+  const sessionCount = (state.sessionFrontEdges || []).length;
+  const totalFront = ifcCount + sessionCount;
+
+  if (ifcCount > 0) {
+    statusEl.innerHTML = `✓ ${ifcCount} road frontage${ifcCount>1?'s':''} from IFC`;
+    statusEl.style.color = 'var(--green)';
+    btnEl.style.display = sessionCount > 0 ? 'block' : 'none';
+    if (sessionCount > 0) btnEl.textContent = `+ ${sessionCount} session edge${sessionCount>1?'s':''} — click to clear`;
+  } else if (sessionCount > 0) {
+    statusEl.innerHTML = `↖ ${sessionCount} edge${sessionCount>1?'s':''} picked as front`;
+    statusEl.style.color = 'var(--amber2)';
+    btnEl.textContent = 'Clear picked edges';
+    btnEl.style.display = 'block';
+  } else {
+    statusEl.innerHTML = 'No road frontage — pick below';
+    statusEl.style.color = 'var(--text3)';
+    btnEl.textContent = '↖ Click street boundary edge';
+    btnEl.style.display = state.boundary ? 'block' : 'none';
+  }
+}
+
+function activateEdgePick() {
+  if (!state.boundary) return;
+  const already = state.edgePickMode;
+  state.edgePickMode = !already;
+  const btn = document.getElementById('btn-pick-frontage');
+  if (state.edgePickMode) {
+    btn.textContent = '✕ Cancel — click an edge on the map';
+    btn.style.background = 'rgba(226,75,74,0.10)';
+    btn.style.borderColor = '#C13333';
+    btn.style.color = '#C13333';
+    document.getElementById('terrain-canvas').style.cursor = 'crosshair';
+  } else {
+    // Clear session picks
+    state.sessionFrontEdges = [];
+    state.edgePickMode = false;
+    btn.style.background = '';
+    btn.style.borderColor = '';
+    btn.style.color = '';
+    document.getElementById('terrain-canvas').style.cursor = 'grab';
+    classifyBoundaryEdges();
+    updateFrontageStatus(state.roadFrontage ? state.roadFrontage.length : 0);
+    if (state.analysed) runAnalysis(); else renderCanvas();
+  }
+}
+
+function pickBoundaryEdge(screenX, screenY) {
+  if (!state.edgeScreenCoords || !state.edgeScreenCoords.length) return;
+  // Find nearest edge segment in screen space
+  let bestIdx = -1, bestDist = 20; // 20px threshold
+  state.edgeScreenCoords.forEach((seg, i) => {
+    const d = distPointToSegment2D(screenX, screenY, seg.x0, seg.y0, seg.x1, seg.y1);
+    if (d < bestDist) { bestDist = d; bestIdx = i; }
+  });
+  if (bestIdx < 0) return;
+  if (!state.sessionFrontEdges) state.sessionFrontEdges = [];
+  const pos = state.sessionFrontEdges.indexOf(bestIdx);
+  if (pos >= 0) state.sessionFrontEdges.splice(pos, 1); // toggle off
+  else state.sessionFrontEdges.push(bestIdx);
+
+  classifyBoundaryEdges();
+  if (state.analysed) runAnalysis(); else renderCanvas();
+}
+
+function distPointToSegment2D(px, py, ax, ay, bx, by) {
+  const dx=bx-ax, dy=by-ay;
+  const lenSq = dx*dx+dy*dy;
+  if (lenSq < 1e-10) return Math.sqrt((px-ax)**2+(py-ay)**2);
+  const t = Math.max(0, Math.min(1, ((px-ax)*dx+(py-ay)*dy)/lenSq));
+  return Math.sqrt((px-ax-t*dx)**2+(py-ay-t*dy)**2);
+}
+
+function R05Score() {
+  // Returns {score:0-100, note:string, cls:string, action:string}
+  if (!state.boundary) return { score:0, note:'No boundary loaded — R05 not assessed', cls:'b-na', action:'Load boundary in IFC' };
+  if (!state.setbackPoly || state.setbackPoly.length < 3) return { score:20, note:'Setback polygon could not be computed', cls:'b-mod', action:'Check boundary geometry' };
+
+  const footprintArea = parseFloat(document.getElementById('p-footprint').value) || 120;
+  const env = state.envelopeArea || 0;
+  const site = state.siteArea || 0;
+  const coverageRatio = site > 0 ? footprintArea / site : 0;
+  const envelopeRatio = env > 0 ? footprintArea / env : 1;
+
+  let score, note, cls, action;
+  if (envelopeRatio > 1.0) {
+    score = 95;
+    note = `Footprint ${footprintArea} m² exceeds setback envelope ${env.toFixed(0)} m² — does not fit`;
+    cls = 'b-crit'; action = 'Reduce footprint or review setbacks';
+  } else if (envelopeRatio > 0.8) {
+    score = 65;
+    note = `Footprint fills ${Math.round(envelopeRatio*100)}% of setback envelope (${env.toFixed(0)} m²) — very tight`;
+    cls = 'b-mod'; action = 'Review design efficiency';
+  } else if (envelopeRatio > 0.5) {
+    score = 30;
+    note = `Footprint uses ${Math.round(envelopeRatio*100)}% of setback envelope — workable`;
+    cls = 'b-mod'; action = 'Confirm with planner';
+  } else {
+    score = 0;
+    note = `Footprint ${footprintArea} m² fits comfortably within setback envelope (${env.toFixed(0)} m²)`;
+    cls = 'b-ok'; action = 'No action';
+  }
+  return { score, note, cls, action };
+}
+
+function R05() {
+  return R05Score();
+}
+
+// ─── ANALYSIS ─────────────────────────────────────────────────────────────────
+function runAnalysis() {
+  if (!state.triangles.length) {
+    alert('Load an IFC file first.');
+    return;
+  }
+
+  const slopeThresh = parseFloat(document.getElementById('p-slope').value) || 15;
+  const ffl = parseFloat(document.getElementById('p-ffl').value) || 0;
+  const mfl = state.mfl;
+
+  // Rule hits
+  const critCount = state.slopes.filter(s => s >= slopeThresh).length;
+  const critPct = Math.round(critCount / state.slopes.length * 100);
+
+  const moderateSlope = state.slopes.filter(s => s >= 8 && s < slopeThresh).length;
+  const flatZone = state.slopes.filter(s => s < 1).length;
+  const flatPct = Math.round(flatZone / state.slopes.length * 100);
+
+  const elevRange = state.zMax - state.zMin;
+  const meanSlope = state.slopes.reduce((a,b)=>a+b,0)/state.slopes.length;
+
+  // Buildable area (slope < threshold) as % of total 2D area
+  let totalArea = 0, buildableArea = 0;
+  state.triangles.forEach((t,i) => {
+    const a = triArea2D(t);
+    totalArea += a;
+    if (state.slopes[i] < slopeThresh) buildableArea += a;
+  });
+  const buildablePct = Math.round(buildableArea / totalArea * 100);
+
+  // MFL check
+  let mflDiffMm = null;
+  if (mfl !== null) {
+    mflDiffMm = Math.round((mfl - ffl) * 1000);
+  }
+
+  // Score each criterion 0–100
+  const r05 = R05Score();
+  const scores = {
+    r01: Math.min(100, Math.round(critPct * 1.3)),
+    r02: Math.min(100, Math.round(Math.max(0, meanSlope - 8) * 4)),
+    r03: Math.min(60, flatPct * 3),
+    r04: Math.min(50, elevRange > 3 ? 40 : elevRange > 1.5 ? 20 : 0),
+    r05: r05.score,
+    mfl: mflDiffMm !== null && mflDiffMm > 0 ? Math.min(100, Math.round(mflDiffMm / 5)) : 0
+  };
+
+  const weights = {r01:0.35, r02:0.22, r03:0.08, r04:0.08, r05:0.12, mfl:0.15};
+  let overall = 0;
+  Object.keys(weights).forEach(k => { overall += (scores[k]||0) * weights[k]; });
+  overall = Math.round(overall);
+
+  // Band
+  let band, bandCol;
+  if (overall < 30) { band = 'Low complexity'; bandCol = '#1D9E75'; }
+  else if (overall < 55) { band = 'Moderate complexity'; bandCol = '#EF9F27'; }
+  else if (overall < 75) { band = 'High complexity'; bandCol = '#E24B4A'; }
+  else { band = 'Extreme complexity'; bandCol = '#E24B4A'; }
+
+  // Update score display
+  document.getElementById('score-val').textContent = overall + '%';
+  document.getElementById('score-val').style.color = bandCol;
+  document.getElementById('score-band').textContent = band;
+  document.getElementById('score-band').style.color = bandCol;
+  document.getElementById('score-sub').innerHTML =
+    `<b>${state.slopes.filter(s=>s>=slopeThresh).length}</b> crit · <b>${moderateSlope}</b> mod triangles`;
+  document.getElementById('ob-fill').style.width = overall + '%';
+  document.getElementById('ob-fill').style.background = bandCol;
+
+  // Metrics
+  document.getElementById('m-maxslope').textContent = Math.round(Math.max(...state.slopes)) + '°';
+  document.getElementById('m-meanslope').textContent = meanSlope.toFixed(1) + '°';
+  document.getElementById('m-elevrange').textContent = elevRange.toFixed(2) + ' m';
+  document.getElementById('m-buildable').textContent = buildablePct + '%';
+  document.getElementById('m-tris').textContent = state.triangles.length;
+  const spanX = state.xMax-state.xMin, spanY = state.yMax-state.yMin;
+  document.getElementById('m-span').textContent = spanX.toFixed(1)+'×'+spanY.toFixed(1)+'m';
+  document.getElementById('m-sitearea').textContent = state.siteArea ? state.siteArea.toFixed(0)+' m²' : '—';
+  document.getElementById('m-envelope').textContent = state.envelopeArea ? state.envelopeArea.toFixed(0)+' m²' : '—';
+
+  // Criteria bars
+  const critRows = [
+    { id:'R01', name:'NZS 3604 slope scope', score:scores.r01,
+      note:`${critCount} of ${state.slopes.length} triangles ≥ ${slopeThresh}° (${critPct}%)`,
+      col: scores.r01 >= 60 ? '#E24B4A' : scores.r01 >= 30 ? '#EF9F27' : '#1D9E75' },
+    { id:'R02', name:'Retaining wall risk', score:scores.r02,
+      note:`Mean slope ${meanSlope.toFixed(1)}° — ${meanSlope>=15?'significant retaining likely':meanSlope>=8?'some retaining possible':'low risk'}`,
+      col: scores.r02 >= 60 ? '#E24B4A' : scores.r02 >= 30 ? '#EF9F27' : '#1D9E75' },
+    { id:'R03', name:'Drainage risk', score:scores.r03,
+      note:`${flatZone} flat triangles (< 1°) — ${flatPct}% of site`,
+      col: scores.r03 >= 40 ? '#EF9F27' : '#1D9E75' },
+    { id:'R04', name:'Elevation complexity', score:scores.r04,
+      note:`Z range ${elevRange.toFixed(2)} m`,
+      col: scores.r04 >= 35 ? '#EF9F27' : '#1D9E75' },
+    { id:'R05', name:'Setback envelope', score:scores.r05,
+      note: r05.note,
+      col: scores.r05 >= 60 ? '#E24B4A' : scores.r05 >= 25 ? '#EF9F27' : '#1D9E75' },
+  ];
+
+  if (mfl !== null) {
+    const mflNote = mflDiffMm > 0
+      ? `FFL ${Math.abs(mflDiffMm)} mm below MFL ${mfl.toFixed(3)} m`
+      : `FFL meets or exceeds MFL — compliant`;
+    critRows.push({ id:'MFL', name:'Min. floor level', score:scores.mfl,
+      note: mflNote,
+      col: mflDiffMm > 300 ? '#E24B4A' : mflDiffMm > 0 ? '#EF9F27' : '#1D9E75' });
+  }
+
+  const critList = document.getElementById('crit-list');
+  critList.innerHTML = critRows.map(r => `
+    <div>
+      <div class="crit-head">
+        <span class="crit-id">${r.id}</span>
+        <span class="crit-name">${r.name}</span>
+        <span class="crit-pct" style="color:${r.col}">${r.score}%</span>
+      </div>
+      <div class="bar-track"><div class="bar-fill" style="width:${r.score}%;background:${r.col}"></div></div>
+      <div class="crit-note">${r.note}</div>
+    </div>`).join('');
+
+  // Feasibility table
+  const feas = [
+    { cat:'Consent risk', rating: overall>=75?'High':overall>=45?'Elevated':'Low',
+      cls: overall>=75?'b-crit':overall>=45?'b-mod':'b-ok',
+      action: overall>=75?'Planner comment':overall>=45?'Pre-app meeting':'Standard process' },
+    { cat:'NZS 3604 scope', rating: critPct>=50?'Out of scope':critPct>=20?'Marginal':'In scope',
+      cls: critPct>=50?'b-crit':critPct>=20?'b-mod':'b-ok',
+      action: critPct>=50?'Engage engineer':critPct>=20?'Check with engineer':'NZS 3604 applicable' },
+    { cat:'Retaining walls', rating: meanSlope>=20?'Likely':'Possible',
+      cls: meanSlope>=20?'b-crit':'b-mod',
+      action: meanSlope>=20?'Structural engineer':'Geotech review' },
+    { cat:'Earthworks', rating: elevRange>=3?'Significant':elevRange>=1.5?'Moderate':'Minor',
+      cls: elevRange>=3?'b-crit':elevRange>=1.5?'b-mod':'b-ok',
+      action: elevRange>=3?'QS estimate + consent':elevRange>=1.5?'QS estimate':'Minimal cost impact' },
+    { cat:'Drainage', rating: flatPct>15?'At risk':'Low risk',
+      cls: flatPct>15?'b-mod':'b-ok',
+      action: flatPct>15?'Drainage engineer':'Standard design' },
+    { cat:'Setback / envelope', rating: r05.score>=60?'Critical':r05.score>=25?'Constrained':'Clear',
+      cls: r05.cls, action: r05.action },
+  ];
+
+  if (mfl !== null) {
+    feas.push({
+      cat:'Flood / MFL',
+      rating: mflDiffMm > 300 ? 'Significant raise' : mflDiffMm > 0 ? 'Raise required' : 'Compliant',
+      cls: mflDiffMm > 300 ? 'b-crit' : mflDiffMm > 0 ? 'b-mod' : 'b-ok',
+      action: mflDiffMm > 300 ? 'Redesign FFL' : mflDiffMm > 0 ? 'Raise FFL' : 'No action'
+    });
+  }
+
+  document.getElementById('feas-body').innerHTML = feas.map(f =>
+    `<tr><td>${f.cat}</td><td><span class="badge ${f.cls}">${f.rating}</span></td><td>${f.action}</td></tr>`
+  ).join('');
+
+  computeShadow();
+  if (overall > 20) toggleSect('rules', true);
+  state.analysed = true;
+  state.lastResults = { overall, band, scores, critRows, feas, meanSlope, elevRange, buildablePct, critPct, mflDiffMm };
+  renderCanvas();
+}
+
+// ─── MFL WIRING ──────────────────────────────────────────────────────────────
+function updateMFLStatus() {
+  const val = parseFloat(document.getElementById('mfl-val').value);
+  const ffl = parseFloat(document.getElementById('p-ffl').value) || 0;
+  const block = document.getElementById('mfl-block');
+  const status = document.getElementById('mfl-status');
+  const legRow = document.getElementById('mfl-leg-row');
+
+  if (isNaN(val) || document.getElementById('mfl-val').value === '') {
+    state.mfl = null;
+    block.className = 'mfl-block';
+    status.style.display = 'none';
+    legRow.style.display = 'none';
+    return;
+  }
+
+  state.mfl = val;
+  legRow.style.display = 'flex';
+  status.style.display = 'block';
+  const diffMm = Math.round((val - ffl) * 1000);
+
+  if (diffMm <= 0) {
+    block.className = 'mfl-block';
+    status.className = 'mfl-status ok';
+    status.textContent = `FFL ${ffl.toFixed(3)} meets MFL — compliant`;
+  } else if (diffMm <= 300) {
+    block.className = 'mfl-block warn';
+    status.className = 'mfl-status warn';
+    status.textContent = `FFL is ${diffMm} mm below MFL — raise required`;
+  } else {
+    block.className = 'mfl-block alert';
+    status.className = 'mfl-status alert';
+    status.textContent = `FFL is ${diffMm} mm below MFL — significant raise`;
+  }
+
+  if (state.analysed) runAnalysis();
+  else renderCanvas();
+}
+
+// ─── PROPERTIES ──────────────────────────────────────────────────────────────
+function getProps() {
+  const g = id => document.getElementById(id);
+  const val = (id, def) => parseFloat(g(id)?.value) || def;
+  const col = (id, def) => g(id)?.value || def;
+  const chk = (id, def=true) => g(id) ? g(id).checked : def;
+  const dashVal  = g('pr-setback-dash')?.value  || '10,5';
+  const bdryDash = g('pr-bdry-dash')?.value    || '8,4';
+  const frontDash= g('pr-front-dash')?.value   || '0';
+  const parseDash = v => v === '0' ? [] : v.split(',').map(Number);
+  const dashArr = parseDash(dashVal);
+  return {
+    gradSlope:         chk('pr-grad-slope'),
+    gradElev:          chk('pr-grad-elev'),
+    gradAspect:        chk('pr-grad-aspect'),
+    slopeLo:           col('pr-slope-lo',    '#bbff00'),
+    slopeMid:          col('pr-slope-mid',   '#ff8c00'),
+    slopeHi:           col('pr-slope-hi',    '#ff0000'),
+    elevLo:            col('pr-elev-lo',     '#ffffff'),
+    elevHi:            col('pr-elev-hi',     '#f6fa00'),
+    aspectFrom:        col('pr-aspect-from', '#ff7f27'),
+    aspectTo:          col('pr-aspect-to',   '#00a2e8'),
+    bdryDash:          parseDash(bdryDash),
+    frontDash:         parseDash(frontDash),
+    showContours:      chk('pr-show-contours'),
+    contourThickMinor: val('pr-contour-minor', 1.0),
+    contourThickMajor: val('pr-contour-major', 2.0),
+    contourColour:     col('pr-contour-colour', '#6B5C3E'),
+    meshEdges:         chk('pr-mesh-edges', false),
+    bdryColour:        col('pr-bdry-colour', '#1a1a1a'),
+    bdryWeight:        val('pr-bdry-weight', 2.0),
+    frontColour:       col('pr-front-colour', '#1a1a1a'),
+    frontWeight:       val('pr-front-weight', 3.0),
+    setbackColour:     col('pr-setback-colour', '#1a1a1a'),
+    setbackWeight:     val('pr-setback-weight', 2.5),
+    setbackDash:       dashArr,
+    mflColour:         col('pr-mfl-colour', '#1A5FA8'),
+    mflWeight:         val('pr-mfl-weight', 2.5),
+    northSize:         val('pr-north-size', 48),
+    modelColour:       col('pr-model-colour', '#888888'),
+    modelOpacity:      val('pr-model-opacity', 0.45),
+    modelEdges:        chk('pr-model-edges', false),
+    shadowOutline:     chk('pr-shadow-outline'),
+    shadowColour:      col('pr-shadow-colour', '#222222'),
+    shadowWeight:      val('pr-shadow-weight', 1.5),
+    shadowDash:        parseDash(g('pr-shadow-dash')?.value || '0'),
+    shadowFill:        chk('pr-shadow-fill'),
+    shadowFillColour:  col('pr-shadow-fill-colour', '#000000'),
+    shadowFillOpacity: val('pr-shadow-fill-opacity', 0.25),
+    modelEdgeColour:   col('pr-model-edge-colour', '#000000'),
+    creaseAngle:       val('pr-crease-angle', 10),
+    fflColour:         col('pr-ffl-colour', '#0055cc'),
+    fflLabel:          chk('pr-ffl-label'),
+    gndColour:         col('pr-gnd-colour', '#ff0000'),
+    gndWeight:         val('pr-gnd-weight', 2.0),
+  };
+}
+
+function openProps() {
+  document.getElementById('props-modal').style.display = 'flex';
+}
+function closeProps() {
+  document.getElementById('props-modal').style.display = 'none';
+  renderCanvas();
+}
+
+
+
+// ─── DYNAMIC LEGEND ──────────────────────────────────────────────────────────
+function updateLegend() {
+  const thresh = parseFloat(document.getElementById('p-slope').value) || 15;
+  const lw = document.getElementById('legend-w');
+  if (!lw) return;
+  const p = getProps();
+  const mflRow = document.getElementById('mfl-leg-row');
+  lw.querySelectorAll('.lg-dynamic').forEach(el => el.remove());
+  const rows = [];
+  if (state.viewMode === 'slope') {
+    rows.push(`<div class="lg-row lg-dynamic"><div class="lg-sw" style="background:${p.slopeHi}"></div><span class="lg-txt">critical ≥ ${thresh}°</span></div>`);
+    rows.push(`<div class="lg-row lg-dynamic"><div class="lg-sw" style="background:${p.slopeMid}"></div><span class="lg-txt">moderate 8–${thresh}°</span></div>`);
+    rows.push(`<div class="lg-row lg-dynamic"><div class="lg-sw" style="background:${p.slopeLo}"></div><span class="lg-txt">buildable ≤ 8°</span></div>`);
+  } else if (state.viewMode === 'elevation') {
+    const zLo = state.zMin.toFixed(2), zHi = state.zMax.toFixed(2);
+    rows.push(`<div class="lg-row lg-dynamic" style="gap:6px"><div style="width:72px;height:10px;border-radius:2px;background:linear-gradient(to right,${p.elevLo},${p.elevHi})"></div><span class="lg-txt">${zLo} m → ${zHi} m</span></div>`);
+  } else if (state.viewMode === 'aspect') {
+    rows.push(`<div class="lg-row lg-dynamic" style="gap:6px"><div style="width:72px;height:10px;border-radius:2px;background:linear-gradient(to right,${p.aspectFrom},${p.aspectTo})"></div><span class="lg-txt">N → S</span></div>`);
+  }
+  if ((state.models||[]).some(m=>m.visible)) {
+    rows.push(`<div class="lg-row lg-dynamic"><div class="lg-sw" style="background:${p.modelColour};opacity:${p.modelOpacity}"></div><span class="lg-txt">Form model</span></div>`);
+  }
+  if (document.getElementById('sh-show')?.checked && state.shadowPoly && state.shadowPoly.length) {
+    rows.push(`<div class="lg-row lg-dynamic"><div class="lg-sw" style="background:none;border:2px solid ${p.shadowColour || '#333333'}"></div><span class="lg-txt">Shadow outline</span></div>`);
+  }
+  rows.forEach(r => {
+    const tmp = document.createElement('div');
+    tmp.innerHTML = r;
+    lw.insertBefore(tmp.firstChild, mflRow);
+  });
+}
+
+
+// ─── NORTH ROTATION ──────────────────────────────────────────────────────────
+function rotatePlan(delta, reset) {
+  if (reset) { cam.planRotation = 0; }
+  else { cam.planRotation = ((cam.planRotation + delta) % 360 + 360) % 360; }
+  const inp = document.getElementById('plan-rot-display');
+  if (inp) inp.value = Math.round(cam.planRotation);
+  const nsv = document.getElementById('ns-val');
+  if (nsv) nsv.textContent = Math.round(cam.planRotation) + '°';
+  renderCanvas();
+}
+
+function rotatePlanAbsolute(val) {
+  cam.planRotation = ((parseFloat(val) || 0) % 360 + 360) % 360;
+  const inp = document.getElementById('plan-rot-display');
+  if (inp) inp.value = Math.round(cam.planRotation);
+  renderCanvas();
+}
+
+function toggleNorthSpinner(canvasX, canvasY) {
+  const sp = document.getElementById('north-spinner');
+  const visible = sp.style.display !== 'none';
+  if (visible) { sp.style.display = 'none'; return; }
+  // Position near north widget
+  const nw = state.northWidget;
+  const canvas = document.getElementById('terrain-canvas');
+  const rect = canvas.getBoundingClientRect();
+  const W = canvas.width;
+  // Place spinner to the left of north point
+  const spW = 176, spH = 220;
+  let left = rect.left + (nw ? nw.x : W - 50) - spW - 8;
+  let top  = rect.top  + (nw ? nw.y : 50) - spH/2;
+  left = Math.max(rect.left + 4, left);
+  top  = Math.max(rect.top  + 4, Math.min(rect.bottom - spH - 4, top));
+  sp.style.left = left + 'px';
+  sp.style.top  = top  + 'px';
+  document.getElementById('ns-val').textContent = Math.round(cam.planRotation) + '°';
+  sp.style.display = 'block';
+}
+
+// Close spinner when clicking outside
+document.addEventListener('click', e => {
+  const sp = document.getElementById('north-spinner');
+  if (sp.style.display === 'none') return;
+  if (sp.contains(e.target)) return;
+  const canvas = document.getElementById('terrain-canvas');
+  if (e.target === canvas) return; // handled by canvas click
+  sp.style.display = 'none';
+});
+
+// ─── CAMERA EVENTS ────────────────────────────────────────────────────────────
+function initCameraEvents() {
+  const canvas = document.getElementById('terrain-canvas');
+
+  canvas.addEventListener('wheel', e => {
+    e.preventDefault();
+    const delta = e.deltaY > 0 ? 0.9 : 1.1;
+    cam.zoom = Math.max(0.1, Math.min(20, cam.zoom * delta));
+    renderCanvas();
+  }, { passive: false });
+
+  canvas.addEventListener('mousedown', e => {
+    if (e.button === 1) {
+      e.preventDefault();
+      if (e.shiftKey) { cam.panning = true; }
+      else            { cam.dragging = true; cam.namedView = null; }
+      cam.lastX = e.clientX; cam.lastY = e.clientY;
+    }
+  });
+
+  window.addEventListener('mousemove', e => {
+    if (!cam.dragging && !cam.panning) return;
+    const dx = e.clientX - cam.lastX;
+    const dy = e.clientY - cam.lastY;
+    cam.lastX = e.clientX; cam.lastY = e.clientY;
+
+    if (cam.panning) {
+      cam.panX += dx; cam.panY += dy;
+    } else if (cam.dragging) {
+      cam.azimuth   = (cam.azimuth - dx * 0.4 + 360) % 360;
+      cam.elevation = Math.max(2, Math.min(90, cam.elevation + dy * 0.3));
+    }
+    renderCanvas();
+  });
+
+  window.addEventListener('mouseup', e => {
+    if (e.button === 1) { cam.dragging = false; cam.panning = false; }
+  });
+
+  // Numpad view shortcuts
+  window.addEventListener('keydown', e => {
+    if (document.getElementById('props-modal').style.display !== 'none') return;
+    const map = { Numpad5:'plan', Numpad2:'front', Numpad6:'right', Numpad8:'rear', Numpad4:'left' };
+    if (map[e.code]) { e.preventDefault(); setView(map[e.code]); }
+    if (e.code === 'Numpad0' || (e.code === 'KeyH' && !e.ctrlKey)) { e.preventDefault(); resetView(); }
+  });
+}
+
+// ─── FILE LOADING ─────────────────────────────────────────────────────────────
+function loadIFC(text, filename) {
+  const dz = document.getElementById('dz-status');
+  dz.className = 'dz-ok';
+  dz.textContent = '⟳ Parsing…';
+
+  setTimeout(() => {
+    const tris = parseIFC(text);
+    if (!tris.length) {
+      dz.className = 'dz-err';
+      dz.textContent = '✕ No IfcPolygonalfaceSet triangles found';
+      return;
+    }
+
+    const slopes = tris.map(slopeDeg);
+    const aspects = tris.map(aspectDeg);
+    const centroids = tris.map(triCentroid);
+    const allX = tris.flatMap(t => t.map(p=>p[0]));
+    const allY = tris.flatMap(t => t.map(p=>p[1]));
+    const allZ = tris.flatMap(t => t.map(p=>p[2]));
+
+    state.triangles = tris;
+    state.slopes = slopes;
+    state.aspects = aspects;
+    state.centroids = centroids;
+    state.xMin = Math.min(...allX); state.xMax = Math.max(...allX);
+    state.yMin = Math.min(...allY); state.yMax = Math.max(...allY);
+    state.zMin = Math.min(...allZ); state.zMax = Math.max(...allZ);
+    state.filename = filename;
+    state.analysed = false;
+    state.viewMode = 'elevation';
+    document.querySelectorAll('.vm[data-mode]').forEach(b => {
+      b.classList.toggle('on', b.dataset.mode === 'elevation');
+    });
+
+    // Parse legal boundary and road frontage
+    state.boundary = parseBoundary(text);
+    state.roadFrontage = parseRoadFrontage(text);
+    state.sessionFrontEdges = [];
+    state.edgePickMode = false;
+    state.hoverEdgeIdx = -1;
+    if (state.boundary) classifyBoundaryEdges();
+
+    document.getElementById('dz-filename').textContent = filename;
+    dz.className = 'dz-ok';
+    const frontNote = state.roadFrontage && state.roadFrontage.length ? ` · ${state.roadFrontage.length} frontage` : '';
+    const bdryNote  = state.boundary ? ` · boundary ✓${frontNote}` : '';
+    dz.textContent = `✓ ${tris.length} triangles · IFC4X3${bdryNote}`;
+    document.getElementById('file-status-bar').textContent = `— ${filename}`;
+    document.getElementById('no-data-msg').style.display = 'none';
+
+    updateLegend();
+    renderCanvas();
+    runAnalysis();
+    computeShadow();
+  }, 50);
+}
+
+// ─── EVENT WIRING ─────────────────────────────────────────────────────────────
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('file-input');
+
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('drag'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('drag'));
+dropzone.addEventListener('drop', e => {
+  e.preventDefault(); dropzone.classList.remove('drag');
+  const f = e.dataTransfer.files[0];
+  if (f) { const r = new FileReader(); r.onload = ev => loadIFC(ev.target.result, f.name); r.readAsText(f); }
+});
+fileInput.addEventListener('change', e => {
+  const f = e.target.files[0];
+  if (f) { const r = new FileReader(); r.onload = ev => loadIFC(ev.target.result, f.name); r.readAsText(f); }
+});
+
+document.getElementById('btn-pick-frontage').addEventListener('click', activateEdgePick);
+
+// Edge pick mouse events on canvas
+const cvs = document.getElementById('terrain-canvas');
+cvs.addEventListener('mousemove', e => {
+  if (!state.edgePickMode || !state.edgeScreenCoords) return;
+  const rect = cvs.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  let bestIdx = -1, bestDist = 20;
+  state.edgeScreenCoords.forEach((seg, i) => {
+    const d = distPointToSegment2D(mx, my, seg.x0, seg.y0, seg.x1, seg.y1);
+    if (d < bestDist) { bestDist = d; bestIdx = i; }
+  });
+  if (bestIdx !== state.hoverEdgeIdx) {
+    state.hoverEdgeIdx = bestIdx;
+    renderCanvas();
+  }
+});
+cvs.addEventListener('click', e => {
+  const rect = cvs.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  // Check north widget click
+  if (state.northWidget) {
+    const nw = state.northWidget;
+    const dist = Math.sqrt((mx-nw.x)**2 + (my-nw.y)**2);
+    if (dist <= nw.r) { toggleNorthSpinner(mx, my); return; }
+  }
+  // Edge pick
+  if (!state.edgePickMode) return;
+  pickBoundaryEdge(mx, my);
+});
+cvs.addEventListener('mouseleave', () => {
+  if (state.edgePickMode && state.hoverEdgeIdx >= 0) {
+    state.hoverEdgeIdx = -1; renderCanvas();
+  }
+  if (!modelDrag) cvs.style.cursor = state.edgePickMode ? 'crosshair' : 'grab';
+});
+
+// Setback inputs — reclassify edges on change
+['p-setback-front','p-setback-side'].forEach(id => {
+  document.getElementById(id).addEventListener('input', () => {
+    if (state.boundary) {
+      classifyBoundaryEdges();
+      if (state.analysed) runAnalysis(); else renderCanvas();
+    }
+  });
+});
+
+document.getElementById('run-btn').addEventListener('click', runAnalysis);
+
+document.querySelectorAll('.vm').forEach(btn => {
+  btn.addEventListener('click', () => {
+    if (!btn.dataset.mode) return;
+    document.querySelectorAll('.vm[data-mode]').forEach(b => b.classList.remove('on'));
+    btn.classList.add('on');
+    state.viewMode = btn.dataset.mode;
+    updateLegend();
+    renderCanvas();
+  });
+});
+
+document.getElementById('mfl-val').addEventListener('input', () => {
+  updateMFLStatus();
+  if (document.getElementById('sect-body-mfl').classList.contains('hidden')) {
+    toggleSect('mfl', true);
+  }
+});
+document.getElementById('p-ffl').addEventListener('input', () => { updateMFLStatus(); if(state.analysed) runAnalysis(); });
+document.getElementById('p-slope').addEventListener('input', () => {
+  const t = document.getElementById('p-slope').value;
+  document.getElementById('r01-thresh').textContent = t;
+  renderCanvas();
+});
+document.getElementById('mfl-clear').addEventListener('click', () => {
+  document.getElementById('mfl-val').value = '';
+  updateMFLStatus();
+});
+
+// Model dropzone
+const modelDZ = document.getElementById('model-dropzone');
+const modelInput = document.getElementById('model-input');
+modelDZ.addEventListener('click', () => modelInput.click());
+modelDZ.addEventListener('dragover', e => { e.preventDefault(); modelDZ.classList.add('drag'); });
+modelDZ.addEventListener('dragleave', () => modelDZ.classList.remove('drag'));
+modelDZ.addEventListener('drop', e => {
+  e.preventDefault(); modelDZ.classList.remove('drag');
+  Array.from(e.dataTransfer.files).forEach(f => loadModelFile(f));
+});
+modelInput.addEventListener('change', e => { Array.from(e.target.files).forEach(f => loadModelFile(f)); });
+
+// Model detail inputs — sync to active model
+['m-name','m-off-x','m-off-y','m-off-z','m-rot','m-opacity'].forEach(id => {
+  document.getElementById(id)?.addEventListener('input', updateActiveModel);
+});
+document.getElementById('m-edges')?.addEventListener('change', updateActiveModel);
+
+// Model drag in viewport
+const cvsDrag = document.getElementById('terrain-canvas');
+cvsDrag.addEventListener('mousedown', e => {
+  if (e.button !== 0) return;
+  const m = getActiveModel();
+  if (!m || !state.models.length) return;
+  const rect = cvsDrag.getBoundingClientRect();
+  const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+  // Simple bounding-box hit test in screen space
+  const mTris = getModelTris(m);
+  if (!mTris.length) return;
+  const app = document.querySelector('.app');
+  const cols = getComputedStyle(app).gridTemplateColumns.split(' ');
+  const leftW = parseInt(cols[0]) + parseInt(cols[1]);
+  // compute screen bounds of model
+  let minX=Infinity,maxX=-Infinity,minY=Infinity,maxY=-Infinity;
+  const W=cvsDrag.width, H=cvsDrag.height;
+  const pxs=[], sys2=[];
+  mTris.forEach(tri => tri.forEach(p => {
+    const pp=project(p[0],p[1],p[2]);
+    // toS inline — need same midX/midY/sc as renderCanvas
+    // approximation: use canvas centre
+    const sc2 = Math.min((W-96)/((state.xMax-state.xMin)||1),(H-96)/((state.yMax-state.yMin)||1))*cam.zoom;
+    const sx=W/2+(pp[0]-(state.xMin+state.xMax)/2)*sc2+cam.panX;
+    const sy=H/2-(pp[1]-(state.yMin+state.yMax)/2)*sc2+cam.panY;
+    minX=Math.min(minX,sx); maxX=Math.max(maxX,sx);
+    minY=Math.min(minY,sy); maxY=Math.max(maxY,sy);
+  }));
+  const pad=10;
+  if (mx<minX-pad||mx>maxX+pad||my<minY-pad||my>maxY+pad) return;
+  e.preventDefault();
+  modelDrag={startX:e.clientX,startY:e.clientY,ox:m.offsetX,oy:m.offsetY,oz:m.offsetZ};
+  cvsDrag.style.cursor='grabbing';
+});
+
+window.addEventListener('mousemove', e => {
+  if (!modelDrag) return;
+  const m = getActiveModel(); if (!m) { modelDrag=null; return; }
+  const dx=(e.clientX-modelDrag.startX), dy=(e.clientY-modelDrag.startY);
+  const app=document.querySelector('.app');
+  const cols=getComputedStyle(app).gridTemplateColumns.split(' ');
+  const W=document.getElementById('terrain-canvas').width;
+  const H=document.getElementById('terrain-canvas').height;
+  const sc = state.renderSc || Math.min((W-96)/((state.xMax-state.xMin)||1),(H-96)/((state.yMax-state.yMin)||1))*cam.zoom;
+  if (cam.namedView==='plan'||!cam.namedView) {
+    const pr=cam.planRotation*Math.PI/180;
+    const worldDx= dx/sc, worldDy=-dy/sc;
+    const rx=worldDx*Math.cos(-pr)-worldDy*Math.sin(-pr);
+    const ry=worldDx*Math.sin(-pr)+worldDy*Math.cos(-pr);
+    m.offsetX=modelDrag.ox+rx; m.offsetY=modelDrag.oy+ry;
+  } else if (cam.namedView==='front'||cam.namedView==='rear') {
+    m.offsetZ=modelDrag.oz - dy/sc;
+    m.offsetX=modelDrag.ox + (cam.namedView==='front'?1:-1)*dx/sc;
+  } else {
+    m.offsetZ=modelDrag.oz - dy/sc;
+    m.offsetY=modelDrag.oy + (cam.namedView==='left'?1:-1)*dx/sc;
+  }
+  document.getElementById('m-off-x').value=m.offsetX.toFixed(2);
+  document.getElementById('m-off-y').value=m.offsetY.toFixed(2);
+  document.getElementById('m-off-z').value=m.offsetZ.toFixed(2);
+  computeShadow(); renderCanvas();
+});
+
+window.addEventListener('mouseup', e => {
+  if (!modelDrag) return;
+  modelDrag=null;
+  document.getElementById('terrain-canvas').style.cursor='grab';
+});
+
+// Shadow inputs — recompute on change
+['sh-show','sh-lat','sh-lon','sh-date','sh-time'].forEach(id => {
+  document.getElementById(id)?.addEventListener('change', () => { computeShadow(); renderCanvas(); });
+  document.getElementById(id)?.addEventListener('input', () => { getSunDir(); });
+});
+
+document.getElementById('export-btn').addEventListener('click', () => {
+  if (!state.analysed) { alert('Run analysis first.'); return; }
+  const out = {
+    file: state.filename,
+    generated: new Date().toISOString(),
+    metrics: {
+      triangles: state.triangles.length,
+      xSpan: +(state.xMax-state.xMin).toFixed(4),
+      ySpan: +(state.yMax-state.yMin).toFixed(4),
+      zMin: +state.zMin.toFixed(4), zMax: +state.zMax.toFixed(4),
+      maxSlope: +Math.max(...state.slopes).toFixed(2),
+      meanSlope: +(state.slopes.reduce((a,b)=>a+b,0)/state.slopes.length).toFixed(2),
+    },
+    score: state.lastResults.overall,
+    band: state.lastResults.band,
+    criteria: state.lastResults.critRows.map(r=>({id:r.id,name:r.name,score:r.score,note:r.note})),
+    feasibility: state.lastResults.feas,
+    mfl: state.mfl,
+    ffl: parseFloat(document.getElementById('p-ffl').value)
+  };
+  const blob = new Blob([JSON.stringify(out,null,2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'inSITE-report.json';
+  a.click();
+});
+
+// Resize handler
+window.addEventListener('resize', renderCanvas);
+
+// Init everything
+initSections();
+initSplitters();
+initCameraEvents();
+
+// Initial render
+renderCanvas();
+
+</script>
+</body>
+</html>
